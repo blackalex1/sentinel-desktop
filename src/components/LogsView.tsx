@@ -19,6 +19,7 @@ interface LogsViewProps {
 
 export const LogsView: React.FC<LogsViewProps> = ({ logs, onClearLogs, status, activeCore }) => {
   const [filterLevel, setFilterLevel] = useState<string>('all');
+  const [filterCore, setFilterCore] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [autoScroll, setAutoScroll] = useState<boolean>(true);
@@ -42,10 +43,11 @@ export const LogsView: React.FC<LogsViewProps> = ({ logs, onClearLogs, status, a
 
   const filteredLogs = logs.filter((log) => {
     const matchesLevel = filterLevel === 'all' || log.level === filterLevel;
+    const matchesCore = filterCore === 'all' || (log.core && log.core.toLowerCase() === filterCore.toLowerCase());
     const matchesSearch =
       log.message.toLowerCase().includes(searchQuery.toLowerCase()) ||
       log.timestamp.includes(searchQuery);
-    return matchesLevel && matchesSearch;
+    return matchesLevel && matchesCore && matchesSearch;
   });
 
   const getLevelColor = (level: string) => {
@@ -68,10 +70,10 @@ export const LogsView: React.FC<LogsViewProps> = ({ logs, onClearLogs, status, a
           <div>
             <div className="flex items-center space-x-2.5">
               <h1 className="text-base font-extrabold text-slate-100 font-sans tracking-wide">
-                Логи текущего ядра ({activeCore.toUpperCase()})
+                Консоль логов {filterCore === 'all' ? `(${activeCore.toUpperCase()})` : `(${filterCore.toUpperCase()})`}
               </h1>
               <span className="px-2.5 py-0.5 text-[9px] font-mono uppercase tracking-widest font-bold rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-300 whitespace-nowrap">
-                Real-Time Console
+                Real-Time Stream
               </span>
             </div>
             <p className="text-xs text-slate-400 font-mono mt-0.5">
@@ -129,6 +131,18 @@ export const LogsView: React.FC<LogsViewProps> = ({ logs, onClearLogs, status, a
         </div>
 
         <div className="flex items-center space-x-2 flex-shrink-0">
+          <label className="text-slate-400 text-[11px]">Ядро:</label>
+          <select
+            value={filterCore}
+            onChange={(e) => setFilterCore(e.target.value)}
+            className="px-3 py-2 bg-[#0a0d1a] border border-white/10 rounded-xl text-slate-200 focus:outline-none focus:border-purple-500/50 cursor-pointer font-bold"
+          >
+            <option value="all" className="bg-[#0e1324] text-slate-200">Все ядра</option>
+            <option value="singbox" className="bg-[#0e1324] text-emerald-300">SING-BOX</option>
+            <option value="xray" className="bg-[#0e1324] text-purple-300">XRAY</option>
+            <option value="hysteria" className="bg-[#0e1324] text-cyan-300">HYSTERIA</option>
+          </select>
+
           <label className="text-slate-400 text-[11px]">Уровень:</label>
           <select
             value={filterLevel}

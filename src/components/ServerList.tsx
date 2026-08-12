@@ -8,6 +8,8 @@ interface ServerListProps {
   selectedServer: VpnServer | null;
   onSelectServer: (server: VpnServer) => void;
   onToggleFavorite: (id: string) => void;
+  onDeleteServer: (id: string) => void;
+  onEditServer: (server: VpnServer) => void;
   onOpenAddSubscription: () => void;
   onOpenHotspotModal: () => void;
   onPingAll: () => void;
@@ -19,6 +21,8 @@ export const ServerList: React.FC<ServerListProps> = ({
   selectedServer,
   onSelectServer,
   onToggleFavorite,
+  onDeleteServer,
+  onEditServer,
   onOpenAddSubscription,
   onOpenHotspotModal,
   onPingAll,
@@ -146,6 +150,8 @@ export const ServerList: React.FC<ServerListProps> = ({
               isSelected={selectedServer?.id === server.id}
               onSelect={() => onSelectServer(server)}
               onToggleFavorite={() => onToggleFavorite(server.id)}
+              onDelete={() => onDeleteServer(server.id)}
+              onEdit={() => onEditServer(server)}
             />
           ))
         ) : (

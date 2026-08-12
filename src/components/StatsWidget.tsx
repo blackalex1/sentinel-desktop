@@ -56,17 +56,14 @@ export const StatsWidget: React.FC<StatsWidgetProps> = ({ stats, status }) => {
       }
     } catch (e) {}
 
-    // Provider 3: Cloudflare 1.1.1.1 cdn trace
+    // Provider 3: icanhazip.com (in IP_CHECK_DOMAINS)
     try {
-      const res = await fetch('https://1.1.1.1/cdn-cgi/trace');
+      const res = await fetch('https://icanhazip.com');
       if (res.ok) {
-        const text = await res.text();
-        const ipMatch = text.match(/ip=(.+)/);
-        const locMatch = text.match(/loc=(.+)/);
-        if (ipMatch && ipMatch[1]) {
+        const text = (await res.text()).trim();
+        if (text && text.length >= 7 && text.length <= 45) {
           setIpInfo({
-            ip: ipMatch[1].trim(),
-            countryCode: locMatch ? locMatch[1].trim() : '',
+            ip: text,
           });
           setIsLoadingIp(false);
           return;

@@ -13,7 +13,7 @@ export interface CoreVersionItem {
 export interface ExtendedCoreInfo {
   type: Exclude<CoreType, 'auto'>;
   name: string;
-  installedVersion: string;
+  installedVersion?: string;
   latestVersion: string;
   availableVersions: CoreVersionItem[];
   repo: string;
@@ -34,54 +34,49 @@ const cleanTagVersion = (v: string) => {
   return cleaned;
 };
 
-// Default Fallback Releases matching real GitHub API
+// Default Fallback Releases populated dynamically from GitHub API
 const DEFAULT_CORES: ExtendedCoreInfo[] = [
   {
     type: 'singbox',
     name: 'Sing-box Core',
-    installedVersion: 'v1.9.3',
-    latestVersion: 'v1.10.0-rc.2',
-    availableVersions: [
-      { version: 'v1.10.0-rc.2', isPrerelease: true },
-      { version: 'v1.9.4', isPrerelease: false },
-      { version: 'v1.9.3', isPrerelease: false },
-      { version: 'v1.9.0', isPrerelease: false },
-      { version: 'v1.8.12', isPrerelease: false },
-    ],
+    installedVersion: undefined,
+    latestVersion: '',
+    availableVersions: [],
     repo: 'SagerNet/sing-box',
     binaryName: 'sing-box.exe',
   },
   {
     type: 'xray',
     name: 'Xray-core',
-    installedVersion: 'v26.7.28',
-    latestVersion: 'v26.7.28',
-    availableVersions: [
-      { version: 'v26.7.28', isPrerelease: true },
-      { version: 'v26.7.11', isPrerelease: true },
-      { version: 'v26.6.27', isPrerelease: true },
-      { version: 'v26.6.22', isPrerelease: true },
-      { version: 'v26.6.1', isPrerelease: true },
-      { version: 'v1.8.23', isPrerelease: false },
-      { version: 'v1.8.11', isPrerelease: false },
-    ],
+    installedVersion: undefined,
+    latestVersion: '',
+    availableVersions: [],
     repo: 'XTLS/Xray-core',
     binaryName: 'xray.exe',
   },
   {
     type: 'hysteria',
     name: 'Hysteria 2 Core',
-    installedVersion: 'v2.5.2',
-    latestVersion: 'v2.5.2',
-    availableVersions: [
-      { version: 'v2.6.0-beta.1', isPrerelease: true },
-      { version: 'v2.5.2', isPrerelease: false },
-      { version: 'v2.5.0', isPrerelease: false },
-      { version: 'v2.4.5', isPrerelease: false },
-      { version: 'v2.4.4', isPrerelease: false },
-    ],
+    installedVersion: undefined,
+    latestVersion: '',
+    availableVersions: [],
     repo: 'apernet/hysteria',
     binaryName: 'hysteria.exe',
+  },
+  {
+    type: 'wintun' as any,
+    name: 'Wintun TUN Driver',
+    installedVersion: undefined,
+    latestVersion: 'v0.14.1',
+    availableVersions: [
+      {
+        version: 'v0.14.1',
+        isPrerelease: false,
+        downloadUrl: 'https://www.wintun.net/builds/wintun-0.14.1.zip',
+      }
+    ],
+    repo: 'WireGuard/wintun',
+    binaryName: 'wintun.dll',
   },
 ];
 
@@ -109,7 +104,11 @@ export const CoreManagerView: React.FC<CoreManagerViewProps> = ({
       if (cachedStr) {
         const parsed = JSON.parse(cachedStr);
         if (parsed?.cores && Array.isArray(parsed.cores)) {
-          return parsed.cores;
+          return parsed.cores.map((c: ExtendedCoreInfo) => ({
+            ...c,
+            isDownloading: false,
+            downloadProgress: undefined,
+          }));
         }
       }
     } catch {}
@@ -129,11 +128,7 @@ export const CoreManagerView: React.FC<CoreManagerViewProps> = ({
     return 'Сегодня';
   });
 
-  const [selectedVersions, setSelectedVersions] = useState<Record<string, string>>({
-    singbox: 'v1.9.4',
-    xray: 'v26.7.28',
-    hysteria: 'v2.5.2',
-  });
+  const [selectedVersions, setSelectedVersions] = useState<Record<string, string>>({});
 
   const [isChecking, setIsChecking] = useState(false);
 
@@ -160,6 +155,25 @@ export const CoreManagerView: React.FC<CoreManagerViewProps> = ({
       const updatedCores = await Promise.all(
         cores.map(async (core) => {
           try {
+            // 1. Try native Rust fetch (CORS-free, rate-limit immune)
+            const nativeReleases = await TauriBridge.fetchGithubReleasesNative(core.repo);
+            if (nativeReleases && nativeReleases.length > 0) {
+              const realVersions: CoreVersionItem[] = nativeReleases.map(item => ({
+                version: cleanTagVersion(item.version),
+                isPrerelease: !!item.is_prerelease,
+                downloadUrl: item.download_url,
+              }));
+
+              const latestObj = realVersions.find(v => !v.isPrerelease) || realVersions[0];
+
+              return {
+                ...core,
+                latestVersion: latestObj ? latestObj.version : core.latestVersion,
+                availableVersions: realVersions,
+              };
+            }
+
+            // 2. Fallback to web fetch
             const url = `https://api.github.com/repos/${core.repo}/releases?per_page=20`;
             const res = await fetch(url, {
               headers: { 'User-Agent': 'SentinelConnect/1.0' },
@@ -170,10 +184,14 @@ export const CoreManagerView: React.FC<CoreManagerViewProps> = ({
             if (Array.isArray(data) && data.length > 0) {
               const realVersions: CoreVersionItem[] = data.map((item: any) => {
                 const rawTag = item.tag_name || item.name || '';
+                const winAsset = item.assets?.find((a: any) => 
+                  a.name?.toLowerCase().includes('windows') && (a.name?.toLowerCase().includes('64') || a.name?.toLowerCase().includes('amd64'))
+                ) || item.assets?.[0];
+
                 return {
                   version: cleanTagVersion(rawTag),
                   isPrerelease: !!item.prerelease,
-                  downloadUrl: item.assets?.[0]?.browser_download_url,
+                  downloadUrl: winAsset?.browser_download_url,
                 };
               });
 
@@ -193,9 +211,9 @@ export const CoreManagerView: React.FC<CoreManagerViewProps> = ({
       );
 
       setCores(updatedCores);
+
       const nowTs = Date.now();
-      const timeString = new Date(nowTs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      setLastCheckTime(timeString);
+      setLastCheckTime(new Date(nowTs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
 
       localStorage.setItem(CACHE_KEY, JSON.stringify({
         timestamp: nowTs,
@@ -212,7 +230,27 @@ export const CoreManagerView: React.FC<CoreManagerViewProps> = ({
     }
   };
 
+  const syncInstalledCoresWithDisk = async () => {
+    const installedStatus = await TauriBridge.checkInstalledCores();
+    if (!installedStatus) return;
+
+    setCores(prev => prev.map(c => {
+      let isPresent = false;
+      if (c.type === 'singbox') isPresent = installedStatus.singbox;
+      else if (c.type === 'xray') isPresent = installedStatus.xray;
+      else if (c.type === 'hysteria') isPresent = installedStatus.hysteria;
+      else if ((c.type as string) === 'wintun') isPresent = installedStatus.wintun;
+
+      return {
+        ...c,
+        installedVersion: isPresent ? (c.installedVersion || 'Установлено') : undefined,
+      };
+    }));
+  };
+
   useEffect(() => {
+    setCores(prev => prev.map(c => ({ ...c, isDownloading: false, downloadProgress: undefined })));
+    syncInstalledCoresWithDisk();
     fetchGithubReleases(false);
   }, []);
 
@@ -221,27 +259,68 @@ export const CoreManagerView: React.FC<CoreManagerViewProps> = ({
   };
 
   const handleDownloadCore = async (coreType: Exclude<CoreType, 'auto'>) => {
-    const targetVersion = selectedVersions[coreType] || 'latest';
-    setCores(prev => prev.map(c => c.type === coreType ? { ...c, isDownloading: true, downloadProgress: 0 } : c));
+    const coreObj = cores.find(c => c.type === coreType);
+    const targetVersion = selectedVersions[coreType] 
+                       || coreObj?.latestVersion 
+                       || coreObj?.availableVersions[0]?.version 
+                       || 'latest';
+    
+    // Dynamically find selected version in core's available versions from GitHub API
+    const verItem = coreObj?.availableVersions.find(v => cleanTagVersion(v.version) === cleanTagVersion(targetVersion)) 
+                 || coreObj?.availableVersions[0];
 
-    for (let p = 15; p <= 100; p += 25) {
-      await new Promise(r => setTimeout(r, 180));
-      setCores(prev => prev.map(c => c.type === coreType ? { ...c, downloadProgress: p } : c));
+    const v = verItem ? cleanTagVersion(verItem.version) : cleanTagVersion(targetVersion);
+    const verNum = v.replace(/^v/i, '');
+
+    let targetUrl = verItem?.downloadUrl || '';
+    if (!targetUrl) {
+      if (coreType === 'singbox') {
+        targetUrl = `https://github.com/SagerNet/sing-box/releases/download/${v}/sing-box-${verNum}-windows-amd64.zip`;
+      } else if (coreType === 'xray') {
+        targetUrl = `https://github.com/XTLS/Xray-core/releases/download/${v}/Xray-windows-64.zip`;
+      } else if (coreType === 'hysteria') {
+        targetUrl = `https://github.com/apernet/hysteria/releases/download/app%2F${v}/hysteria-windows-amd64.exe`;
+      } else if ((coreType as string) === 'wintun') {
+        targetUrl = 'https://fastly.jsdelivr.net/gh/WireGuard/wintun@master/builds/wintun-0.14.1.zip';
+      }
     }
 
-    const coreObj = cores.find(c => c.type === coreType);
-    const targetUrl = `https://github.com/${coreObj?.repo}/releases/tag/${targetVersion}`;
-    const success = await TauriBridge.downloadCoreFromGithub(coreType, targetUrl);
+    setCores(prev => prev.map(c => c.type === coreType ? { ...c, isDownloading: true, downloadProgress: 10 } : c));
 
-    setCores(prev => prev.map(c => c.type === coreType ? {
-      ...c,
-      isDownloading: false,
-      installedVersion: cleanTagVersion(targetVersion),
-      downloadProgress: undefined,
-    } : c));
+    try {
+      const success = await TauriBridge.downloadCoreFromGithub(coreType, targetUrl, (p) => {
+        setCores(prev => prev.map(c => c.type === coreType ? { ...c, downloadProgress: p } : c));
+      });
 
-    if (success) {
-      onShowToast(`Ядро ${coreObj?.name} обновлено`, `Успешно установлена версия ${cleanTagVersion(targetVersion)}`, 'success');
+      const installedStatus = await TauriBridge.checkInstalledCores();
+      const isInstalledOnDisk = installedStatus ? (
+        coreType === 'singbox' ? installedStatus.singbox :
+        coreType === 'xray' ? installedStatus.xray :
+        coreType === 'hysteria' ? installedStatus.hysteria :
+        installedStatus.wintun
+      ) : false;
+
+      const isSuccess = success || isInstalledOnDisk;
+
+      setCores(prev => prev.map(c => c.type === coreType ? {
+        ...c,
+        isDownloading: false,
+        installedVersion: isSuccess ? v : c.installedVersion,
+        downloadProgress: undefined,
+      } : c));
+
+      if (isSuccess) {
+        onShowToast(`Компонент ${coreObj?.name || coreType} обновлен`, `Успешно установлен компонент ${v}`, 'success');
+      } else {
+        onShowToast(`Ошибка загрузки ${coreObj?.name || coreType}`, `Не удалось скачать компонент ${v}.`, 'error');
+      }
+    } catch (err) {
+      setCores(prev => prev.map(c => c.type === coreType ? {
+        ...c,
+        isDownloading: false,
+        downloadProgress: undefined,
+      } : c));
+      onShowToast(`Ошибка загрузки ${coreObj?.name || coreType}`, `Ошибка при установке: ${err}`, 'error');
     }
   };
 
@@ -315,7 +394,7 @@ export const CoreManagerView: React.FC<CoreManagerViewProps> = ({
         </button>
       </div>
 
-      {/* Cores Grid */}
+          {/* Cores Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {cores.map((core) => {
           const isSelected = activeCore === core.type;
@@ -325,7 +404,7 @@ export const CoreManagerView: React.FC<CoreManagerViewProps> = ({
           
           const currentVerStr = cleanTagVersion(selectedVersions[core.type] || core.latestVersion);
           const selectedVerObj = core.availableVersions.find(v => normVer(v.version) === normVer(currentVerStr));
-          const isCurrentInstalled = normVer(currentVerStr) === normVer(core.installedVersion);
+          const isCurrentInstalled = !!core.installedVersion && normVer(currentVerStr) === normVer(core.installedVersion);
 
           // Convert to standardized SelectOption items
           const versionOptions: SelectOption[] = filteredVersions.map((item) => ({
@@ -333,7 +412,7 @@ export const CoreManagerView: React.FC<CoreManagerViewProps> = ({
             label: item.version,
             badge: item.isPrerelease ? 'Pre-release' : 'Stable',
             badgeType: item.isPrerelease ? 'prerelease' : 'stable',
-            isInstalled: normVer(item.version) === normVer(core.installedVersion),
+            isInstalled: !!core.installedVersion && normVer(item.version) === normVer(core.installedVersion),
           }));
 
           return (
@@ -372,9 +451,11 @@ export const CoreManagerView: React.FC<CoreManagerViewProps> = ({
 
                 {/* Installed Version Row */}
                 <div className="space-y-2 pt-3 border-t border-white/5 font-mono text-xs">
-                  <div className="flex justify-between items-center text-slate-400">
-                    <span>Установленная версия:</span>
-                    <span className="text-slate-200 font-bold">{cleanTagVersion(core.installedVersion)}</span>
+                  <div className="flex justify-between items-center gap-2 text-slate-400">
+                    <span className="shrink-0">Установлено:</span>
+                    <span className={core.installedVersion ? "text-slate-200 font-bold truncate" : "text-amber-400 font-medium shrink-0"}>
+                      {core.installedVersion ? cleanTagVersion(core.installedVersion) : 'Не установлено'}
+                    </span>
                   </div>
                 </div>
 
@@ -445,7 +526,11 @@ export const CoreManagerView: React.FC<CoreManagerViewProps> = ({
                     </button>
 
                     {/* Select / Active Core Engine Button */}
-                    {isSelected ? (
+                    {(core.type as string) === 'wintun' ? (
+                      <div className="flex items-center justify-center py-2.5 px-2 rounded-xl text-xs font-mono font-bold text-slate-400 bg-white/5 border border-white/10 whitespace-nowrap min-w-0">
+                        Драйвер TUN
+                      </div>
+                    ) : isSelected ? (
                       <div className="flex items-center justify-center py-2.5 px-2 rounded-xl text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 whitespace-nowrap min-w-0">
                         Включено
                       </div>

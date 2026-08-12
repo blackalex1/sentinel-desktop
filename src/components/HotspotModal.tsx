@@ -3,6 +3,7 @@ import { X, Smartphone, Zap, Info, ChevronDown, ChevronUp, ClipboardCheck, Shiel
 import { VpnServer } from '../types/vpn';
 import { ProxyParser } from '../services/proxyParser';
 import { SentinelPairingService } from '../services/pairingService';
+import { TauriBridge } from '../services/tauriBridge';
 
 interface HotspotModalProps {
   isOpen: boolean;
@@ -15,8 +16,8 @@ export const HotspotModal: React.FC<HotspotModalProps> = ({
   onClose,
   onAddHotspotServer,
 }) => {
-  const [ip, setIp] = useState('192.168.43.1');
-  const [port, setPort] = useState('1080');
+  const [ip, setIp] = useState('');
+  const [port, setPort] = useState('10808');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showFullGuide, setShowFullGuide] = useState(false);
@@ -30,6 +31,12 @@ export const HotspotModal: React.FC<HotspotModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       handlePasteFromClipboard(true);
+      TauriBridge.getDefaultGateways().then((gws) => {
+        if (gws && gws.length > 0) {
+          console.log('[HotspotModal] Auto-detected gateway IP:', gws[0]);
+          setIp(gws[0]);
+        }
+      });
     }
   }, [isOpen]);
 
@@ -58,23 +65,27 @@ export const HotspotModal: React.FC<HotspotModalProps> = ({
   };
 
   const handleRequestPhonePairing = async () => {
+    const pin = Math.floor(1000 + Math.random() * 9000).toString();
     setIsPairing(true);
-    setPairStatus('Отправка запроса на смартфон...');
+    setPairPin(pin);
+    setPairStatus(`Код ${pin} отправлен. Подтвердите сопряжение на телефоне!`);
+    setAutoDetectedMessage(null);
 
-    const result = await SentinelPairingService.requestPairing(ip);
+    const result = await SentinelPairingService.requestPairing(ip, pin);
 
-    if (result.success && result.pin) {
-      setPairPin(result.pin);
-      setPairStatus(`Подтвердите запрос на смартфоне! Код: ${result.pin}`);
+    if (result.success) {
+      setPairPin(result.pin || pin);
+      setPairStatus(`Сопряжение успешно подтверждено на смартфоне!`);
 
       if (result.ip) setIp(result.ip);
       if (result.port) setPort(result.port.toString());
       if (result.username) setUsername(result.username);
       if (result.password) setPassword(result.password);
 
-      setAutoDetectedMessage(`Запрос одобрен! Логин: ${result.username || 'Без логина'}, Пароль получен защищенным образом.`);
+      setAutoDetectedMessage(`Данные получены: ${result.ip}:${result.port} (Логин: ${result.username || 'Без логина'})`);
     } else {
-      setPairStatus('Не удалось связаться с x-prox. Убедитесь, что телефон подключен к Wi-Fi.');
+      setPairPin(null);
+      setPairStatus(result.message || 'Запрос отклонен или смартфон недоступен в сети.');
     }
 
     setIsPairing(false);
@@ -233,7 +244,7 @@ export const HotspotModal: React.FC<HotspotModalProps> = ({
                   type="text"
                   value={ip}
                   onChange={(e) => setIp(e.target.value)}
-                  placeholder="192.168.43.1"
+                  placeholder="Автоматически из шлюза"
                   required
                   className="w-full px-3 py-1.5 text-xs font-mono bg-surface-elevated/80 border border-surface-border rounded-xl text-slate-100 focus:outline-none focus:border-emerald-500/50"
                 />

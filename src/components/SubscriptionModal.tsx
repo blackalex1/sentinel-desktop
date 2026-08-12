@@ -94,7 +94,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 rows={5}
-                placeholder={`vless://uuid@host:443?security=reality#Server\nhy2://pass@host:443#Hysteria2\nsocks5://user:pass@192.168.43.1:1080#Hotspot`}
+                placeholder={`vless://uuid@host:443?security=reality#Server\nhy2://pass@host:443#Hysteria2\nsocks5://user:pass@host:10808#Hotspot`}
                 className="w-full p-3 text-xs font-mono bg-surface-elevated/80 border border-surface-border rounded-xl text-slate-100 placeholder-slate-600 focus:outline-none focus:border-purple-500/50 resize-none"
               />
             </div>

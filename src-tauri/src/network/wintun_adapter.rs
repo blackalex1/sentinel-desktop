@@ -6,7 +6,8 @@ pub fn is_wintun_available() -> bool {
     exe_dir.pop();
     
     let wintun_dll = exe_dir.join("wintun.dll");
+    let binaries_wintun = exe_dir.join("binaries").join("wintun.dll");
     let system_wintun = Path::new("C:\\Windows\\System32\\wintun.dll");
 
-    wintun_dll.exists() || system_wintun.exists()
+    wintun_dll.exists() || binaries_wintun.exists() || system_wintun.exists()
 }

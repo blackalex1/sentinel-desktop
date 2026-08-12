@@ -3,7 +3,7 @@ import { VpnServer, AppSettings, CoreType } from '../types/vpn';
 // Full 47 IP Checkers matched with Spectre Panel backend specs (backend/database/crud/routing.py)
 const IP_CHECK_DOMAINS = [
   "api.ipify.org", "ipify.org", "checkip.amazonaws.com", "ifconfig.me", "ifconfig.co", "ifconfig.io",
-  "telega.me", "geosite:2ip", "2ip.ru", "2ip.io", "2ip.ua", "2ip.me",
+  "telega.me", "2ip.ru", "2ip.io", "2ip.ua", "2ip.me",
   "myip.ru", "myip.com", "icanhazip.com", "wtfismyip.com", "ip.sb",
   "ipapi.co", "ip-api.com", "ipapi.com", "db-ip.com", "whoer.net",
   "ipwhois.io", "ipwho.is", "ipaddress.my", "ipaddress.com", "check-host.net",
@@ -82,12 +82,13 @@ export class ConfigBuilder {
       log: {
         disabled: false,
         level: lvl === 'warn' ? 'warn' : (lvl === 'error' ? 'error' : (lvl === 'debug' ? 'debug' : 'info')),
+        output: '',
         timestamp: true
       },
       dns: {
         servers: [
           { tag: 'dns-remote', address: settings.dnsServer || 'https://1.1.1.1/dns-query' },
-          { tag: 'dns-direct', address: '8.8.8.8', detours: ['direct'] }
+          { tag: 'dns-direct', address: '8.8.8.8', detour: 'direct' }
         ]
       },
       inbounds: [
@@ -95,22 +96,28 @@ export class ConfigBuilder {
           type: 'socks',
           tag: 'socks-in',
           listen: '127.0.0.1',
-          listen_port: settings.socksPort || 10808
+          listen_port: settings.socksPort || 10808,
+          sniff: true,
+          sniff_override_destination: true
         },
         {
           type: 'http',
           tag: 'http-in',
           listen: '127.0.0.1',
-          listen_port: settings.httpPort || 10809
+          listen_port: settings.httpPort || 10809,
+          sniff: true,
+          sniff_override_destination: true
         },
         ...(settings.tunMode ? [{
           type: 'tun',
           tag: 'tun-in',
-          interface_name: 'x-pc-wintun',
-          inet4_address: '172.19.0.1/30',
+          interface_name: 'sentinel-tun',
+          inet4_address: ['172.19.0.1/30'],
           auto_route: true,
           strict_route: true,
-          stack: 'system'
+          stack: 'mixed',
+          sniff: true,
+          sniff_override_destination: true
         }] : [])
       ],
       outbounds: [
@@ -136,6 +143,8 @@ export class ConfigBuilder {
 
     return {
       log: {
+        access: '',
+        error: '',
         loglevel: xrayLevel
       },
       inbounds: [
@@ -144,13 +153,15 @@ export class ConfigBuilder {
           port: settings.socksPort || 10808,
           listen: '127.0.0.1',
           protocol: 'socks',
-          settings: { auth: 'noauth', udp: true }
+          settings: { auth: 'noauth', udp: true },
+          sniffing: { enabled: true, destOverride: ['http', 'tls', 'quic'], routeOnly: true }
         },
         {
           tag: 'http-in',
           port: settings.httpPort || 10809,
           listen: '127.0.0.1',
-          protocol: 'http'
+          protocol: 'http',
+          sniffing: { enabled: true, destOverride: ['http', 'tls', 'quic'], routeOnly: true }
         }
       ],
       outbounds: [
@@ -194,32 +205,30 @@ export class ConfigBuilder {
 
   private static buildSingboxRouteRules(settings: AppSettings): any[] {
     const rules: any[] = [
-      { dns_query: true, detour: 'dns-remote' },
-      { ip_is_private: true, detour: 'direct' }
+      { ip_cidr: ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '127.0.0.0/8'], outbound: 'direct' }
     ];
 
     // Apply Quick Security Rules (BitTorrent, Ads, CN, RU, US, IP Services)
     if (settings.quickSecurityRules) {
       for (const qr of settings.quickSecurityRules) {
         if (!qr.enabled) continue;
-        const detour = qr.action === 'BLOCKED' ? 'block' : (qr.action === 'DIRECT' ? 'direct' : 'proxy');
+        const outbound = qr.action === 'BLOCKED' ? 'block' : (qr.action === 'DIRECT' ? 'direct' : 'proxy');
 
         if (qr.id === 'bt') {
-          rules.push({ protocol: 'bittorrent', detour });
-          rules.push({ domain: ['torrent', 'tracker'], detour });
+          rules.push({ protocol: ['bittorrent'], outbound });
+          rules.push({ domain_keyword: ['torrent', 'tracker'], outbound });
         } else if (qr.id === 'ads') {
-          rules.push({ geosite: ['category-ads-all'], detour });
+          rules.push({ domain_keyword: ['ad', 'ads', 'tracker', 'telemetry', 'analytics'], outbound });
         } else if (qr.id === 'cn') {
-          rules.push({ geosite: ['cn'], detour });
-          rules.push({ geoip: ['cn'], detour });
+          rules.push({ domain_suffix: ['.cn'], outbound });
         } else if (qr.id === 'ru') {
-          rules.push({ geosite: ['ru'], detour });
-          rules.push({ geoip: ['ru'], detour });
+          rules.push({ domain_suffix: ['.ru', '.su', '.xn--p1ai'], outbound });
         } else if (qr.id === 'us') {
-          rules.push({ geosite: ['us'], detour });
-          rules.push({ geoip: ['us'], detour });
+          rules.push({ domain_suffix: ['.gov', '.us', '.mil'], outbound });
         } else if (qr.id === 'ip_service') {
-          rules.push({ domain: IP_CHECK_DOMAINS, detour });
+          rules.push({ domain_suffix: IP_CHECK_DOMAINS, outbound });
+          rules.push({ domain_keyword: ['ipify', '2ip', 'ipwhois', 'icanhazip', 'ifconfig', 'checkip', 'browserleaks', 'whoer', 'ipleak'], outbound });
+          rules.push({ ip_cidr: ['1.1.1.1/32', '1.0.0.1/32'], outbound });
         }
       }
     }
@@ -228,12 +237,22 @@ export class ConfigBuilder {
     if (settings.customRouteRules) {
       for (const cr of settings.customRouteRules) {
         if (!cr.enabled) continue;
-        const detour = cr.action === 'BLOCKED' ? 'block' : (cr.action === 'DIRECT' ? 'direct' : 'proxy');
+        const outbound = cr.action === 'BLOCKED' ? 'block' : (cr.action === 'DIRECT' ? 'direct' : 'proxy');
 
-        const ruleObj: any = { detour };
-        if (cr.domains && cr.domains.length > 0) ruleObj.domain = cr.domains;
-        if (cr.ips && cr.ips.length > 0) ruleObj.ip_cidr = cr.ips;
-        rules.push(ruleObj);
+        const rawDomains = (cr.domains || [])
+          .map(d => d.replace(/^(domain:|geosite:|keyword:)/, ''))
+          .filter(Boolean);
+        
+        const rawIps = (cr.ips || [])
+          .map(i => i.replace(/^geoip:/, ''))
+          .filter(i => i.includes('.') || i.includes(':') || i.includes('/'));
+
+        if (rawDomains.length > 0) {
+          rules.push({ domain_suffix: rawDomains, outbound });
+        }
+        if (rawIps.length > 0) {
+          rules.push({ ip_cidr: rawIps, outbound });
+        }
       }
     }
 
@@ -244,7 +263,7 @@ export class ConfigBuilder {
 
   private static buildXrayRouteRules(settings: AppSettings): any[] {
     const rules: any[] = [
-      { type: 'field', ip: ['geoip:private'], outboundTag: 'direct' }
+      { type: 'field', ip: ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '127.0.0.0/8'], outboundTag: 'direct' }
     ];
 
     // Apply Quick Security Rules
@@ -255,20 +274,19 @@ export class ConfigBuilder {
 
         if (qr.id === 'bt') {
           rules.push({ type: 'field', protocol: ['bittorrent'], outboundTag });
-          rules.push({ type: 'field', domain: ['torrent', 'tracker'], outboundTag });
+          rules.push({ type: 'field', domain: ['keyword:torrent', 'keyword:tracker'], outboundTag });
         } else if (qr.id === 'ads') {
-          rules.push({ type: 'field', domain: ['geosite:category-ads-all'], outboundTag });
+          rules.push({ type: 'field', domain: ['keyword:ad', 'keyword:ads', 'keyword:tracker', 'keyword:telemetry', 'keyword:analytics'], outboundTag });
         } else if (qr.id === 'cn') {
-          rules.push({ type: 'field', domain: ['geosite:cn'], outboundTag });
-          rules.push({ type: 'field', ip: ['geoip:cn'], outboundTag });
+          rules.push({ type: 'field', domain: ['domain:.cn'], outboundTag });
         } else if (qr.id === 'ru') {
-          rules.push({ type: 'field', domain: ['geosite:ru'], outboundTag });
-          rules.push({ type: 'field', ip: ['geoip:ru'], outboundTag });
+          rules.push({ type: 'field', domain: ['domain:.ru', 'domain:.su', 'domain:.xn--p1ai'], outboundTag });
         } else if (qr.id === 'us') {
-          rules.push({ type: 'field', domain: ['geosite:us'], outboundTag });
-          rules.push({ type: 'field', ip: ['geoip:us'], outboundTag });
+          rules.push({ type: 'field', domain: ['domain:.gov', 'domain:.us', 'domain:.mil'], outboundTag });
         } else if (qr.id === 'ip_service') {
-          rules.push({ type: 'field', domain: IP_CHECK_DOMAINS, outboundTag });
+          rules.push({ type: 'field', domain: IP_CHECK_DOMAINS.map(d => `domain:${d}`), outboundTag });
+          rules.push({ type: 'field', domain: ['keyword:ipify', 'keyword:2ip', 'keyword:ipwhois', 'keyword:icanhazip', 'keyword:ifconfig', 'keyword:checkip', 'keyword:browserleaks', 'keyword:whoer', 'keyword:ipleak'], outboundTag });
+          rules.push({ type: 'field', ip: ['1.1.1.1/32', '1.0.0.1/32'], outboundTag });
         }
       }
     }
@@ -279,10 +297,30 @@ export class ConfigBuilder {
         if (!cr.enabled) continue;
         const outboundTag = cr.action === 'BLOCKED' ? 'block' : (cr.action === 'DIRECT' ? 'direct' : 'proxy');
 
-        const ruleObj: any = { type: 'field', outboundTag };
-        if (cr.domains && cr.domains.length > 0) ruleObj.domain = cr.domains;
-        if (cr.ips && cr.ips.length > 0) ruleObj.ip = cr.ips;
-        rules.push(ruleObj);
+        const rawDomains = (cr.domains || [])
+          .map(d => {
+            if (d.startsWith('geosite:')) {
+              const tag = d.replace(/^geosite:/, '').toLowerCase();
+              if (tag === 'ru') return ['domain:.ru', 'domain:.su', 'domain:.xn--p1ai'];
+              if (tag === 'cn') return ['domain:.cn'];
+              if (tag === 'us') return ['domain:.us', 'domain:.gov'];
+              return [`domain:.${tag}`];
+            }
+            return [d];
+          })
+          .flat()
+          .filter(Boolean);
+
+        const rawIps = (cr.ips || [])
+          .map(i => i.replace(/^geoip:/, ''))
+          .filter(i => i.includes('.') || i.includes(':') || i.includes('/'));
+
+        if (rawDomains.length > 0) {
+          rules.push({ type: 'field', domain: rawDomains, outboundTag });
+        }
+        if (rawIps.length > 0) {
+          rules.push({ type: 'field', ip: rawIps, outboundTag });
+        }
       }
     }
 
@@ -293,24 +331,32 @@ export class ConfigBuilder {
 
   private static buildSingboxOutbound(server: VpnServer): any {
     switch (server.protocol) {
-      case 'VLESS':
+      case 'VLESS': {
+        const isTls = server.security === 'tls' || server.security === 'reality';
         return {
           type: 'vless',
           tag: 'proxy',
           server: server.address,
           server_port: server.port,
-          uuid: server.uuid,
-          flow: 'xtls-rprx-vision',
-          tls: {
-            enabled: server.security === 'tls' || server.security === 'reality',
+          uuid: server.uuid || '',
+          ...(isTls ? { flow: 'xtls-rprx-vision' } : {}),
+          tls: isTls ? {
+            enabled: true,
             server_name: server.sni || server.address,
-            reality: server.security === 'reality' ? {
+            utls: {
               enabled: true,
-              public_key: server.pbk,
-              short_id: server.sid
-            } : undefined
-          }
+              fingerprint: server.fp || 'chrome'
+            },
+            ...(server.security === 'reality' ? {
+              reality: {
+                enabled: true,
+                public_key: server.pbk || '',
+                short_id: server.sid || ''
+              }
+            } : {})
+          } : undefined
         };
+      }
 
       case 'VMESS':
         return {

@@ -10,6 +10,7 @@ import { CoreManagerView } from './components/CoreManagerView';
 import { LogsView, LogEntry } from './components/LogsView';
 import { HotspotView } from './components/HotspotView';
 import { SubscriptionModal } from './components/SubscriptionModal';
+import { EditServerModal } from './components/EditServerModal';
 import { ToastContainer, ToastMessage } from './components/Toast';
 import { VpnServer, ConnectionStatus, AppSettings, TrafficStats } from './types/vpn';
 import { TauriBridge } from './services/tauriBridge';
@@ -34,8 +35,8 @@ const IP_CHECK_DOMAINS = [
 const DEFAULT_SETTINGS: AppSettings = {
   activeCore: 'singbox',
   logLevel: 'info',
-  tunMode: true,
-  systemProxy: false,
+  tunMode: false,
+  systemProxy: true,
   autoConnect: false,
   autoStart: false,
   includePrereleases: true,
@@ -98,8 +99,23 @@ export function App() {
 
   const [isPinging, setIsPinging] = useState(false);
   const [isSubscriptionOpen, setIsSubscriptionOpen] = useState(false);
+  const [editingServer, setEditingServer] = useState<VpnServer | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
+
+  const handleEditServer = (server: VpnServer) => {
+    setEditingServer(server);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEditedServer = (updatedServer: VpnServer) => {
+    setServers((prev) => prev.map((s) => (s.id === updatedServer.id ? updatedServer : s)));
+    if (selectedServer?.id === updatedServer.id) {
+      setSelectedServer(updatedServer);
+    }
+    addToast('Подключение обновлено', `${updatedServer.name} (${updatedServer.address}:${updatedServer.port})`, 'success');
+  };
 
   const addToast = (title: string, message?: string, type: 'success' | 'error' | 'info' = 'info') => {
     const newToast: ToastMessage = { id: `toast_${Date.now()}`, title, message, type };
@@ -113,19 +129,48 @@ export function App() {
   // Global persistent core-log event listener
   useEffect(() => {
     let unlisten: (() => void) | null = null;
+    let isMounted = true;
+
+    // Seed initial startup logs so user sees system state immediately
+    setLogs((prev) => {
+      if (prev.length === 0) {
+        const timeStr = new Date().toLocaleTimeString();
+        return [
+          {
+            id: `log_init_1`,
+            timestamp: timeStr,
+            level: 'info',
+            message: `Система Sentinel Secure Connect инициализирована. Активное ядро: ${settings.activeCore.toUpperCase()}.`,
+            core: settings.activeCore,
+          },
+          {
+            id: `log_init_2`,
+            timestamp: timeStr,
+            level: 'debug',
+            message: `Маршрутизация: ${settings.routingRules}. DNS: ${settings.dnsServer}. SOCKS5 порт: ${settings.socksPort}, HTTP порт: ${settings.httpPort}.`,
+            core: settings.activeCore,
+          }
+        ];
+      }
+      return prev;
+    });
+
     const setupListener = async () => {
       try {
-        unlisten = await listen<string>('core-log', (event) => {
+        unlisten = await listen<any>('core-log', (event) => {
+          if (!isMounted) return;
           const timeStr = new Date().toLocaleTimeString();
-          const rawPayload = event.payload || '';
+          const rawPayload = typeof event.payload === 'string' ? event.payload : JSON.stringify(event.payload || '');
+          if (!rawPayload.trim()) return;
+
           let level: LogEntry['level'] = 'info';
           const lower = rawPayload.toLowerCase();
-          if (lower.includes('error') || lower.includes('fatal')) level = 'error';
-          else if (lower.includes('warn') || lower.includes('warning')) level = 'warn';
-          else if (lower.includes('debug') || lower.includes('trace')) level = 'debug';
+          if (lower.includes('error') || lower.includes('fatal') || lower.includes('[error]')) level = 'error';
+          else if (lower.includes('warn') || lower.includes('warning') || lower.includes('[warn]')) level = 'warn';
+          else if (lower.includes('debug') || lower.includes('trace') || lower.includes('[debug]')) level = 'debug';
 
           const entry: LogEntry = {
-            id: `log_native_${Date.now()}_${Math.random()}`,
+            id: `log_native_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
             timestamp: timeStr,
             level,
             message: rawPayload,
@@ -133,14 +178,17 @@ export function App() {
           };
           setLogs((prev) => [...prev.slice(-1000), entry]);
         });
-      } catch (err) {}
+      } catch (err) {
+        console.warn('[Logs] Could not attach native core-log listener:', err);
+      }
     };
 
     setupListener();
     return () => {
+      isMounted = false;
       if (unlisten) unlisten();
     };
-  }, [settings.activeCore]);
+  }, [settings.activeCore, settings.routingRules, settings.dnsServer, settings.socksPort, settings.httpPort]);
 
   useEffect(() => {
     DbService.saveAllServers(servers);
@@ -152,6 +200,43 @@ export function App() {
   useEffect(() => {
     localStorage.setItem('xpc_settings', JSON.stringify(settings));
   }, [settings]);
+
+  // Fail-safe direct Rust log memory polling
+  useEffect(() => {
+    let logTimer: any = null;
+    if (status === 'connected' || status === 'connecting') {
+      logTimer = setInterval(async () => {
+        const linesFromRust = await TauriBridge.getCoreLogs();
+        if (linesFromRust && linesFromRust.length > 0) {
+          setLogs((prev) => {
+            const existingMessages = new Set(prev.map(l => l.message));
+            const newEntries: LogEntry[] = [];
+            for (const line of linesFromRust) {
+              if (!existingMessages.has(line)) {
+                let level: LogEntry['level'] = 'info';
+                const lower = line.toLowerCase();
+                if (lower.includes('error') || lower.includes('fatal') || lower.includes('[error]')) level = 'error';
+                else if (lower.includes('warn') || lower.includes('warning') || lower.includes('[warn]')) level = 'warn';
+                else if (lower.includes('debug') || lower.includes('trace') || lower.includes('[debug]')) level = 'debug';
+
+                newEntries.push({
+                  id: `log_poll_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+                  timestamp: new Date().toLocaleTimeString(),
+                  level,
+                  message: line,
+                  core: settings.activeCore,
+                });
+              }
+            }
+            return newEntries.length > 0 ? [...prev.slice(-1000), ...newEntries] : prev;
+          });
+        }
+      }, 1000);
+    }
+    return () => {
+      if (logTimer) clearInterval(logTimer);
+    };
+  }, [status, settings.activeCore]);
 
   // Traffic Stats Polling when connected
   useEffect(() => {
@@ -202,7 +287,7 @@ export function App() {
 
       addToast('Пересборка конфигурации', 'Применение нового уровня логов / настроек к активному туннелю...', 'info');
       const compiled = ConfigBuilder.buildConfig(selectedServer, updatedSettings);
-      const success = await TauriBridge.connectVpn(selectedServer, updatedSettings);
+      const success = await TauriBridge.connectVpn(selectedServer, updatedSettings, compiled.configJson);
       if (success) {
         addToast('Ядро перезагружено', `Настройки применены на лету`, 'success');
       } else {
@@ -234,7 +319,7 @@ export function App() {
 
       setStatus('connecting');
       const compiled = ConfigBuilder.buildConfig(selectedServer, settings);
-      const success = await TauriBridge.connectVpn(selectedServer, settings);
+      const success = await TauriBridge.connectVpn(selectedServer, settings, compiled.configJson);
       if (success) {
         setStatus('connected');
         addToast('VPN подключен!', `Успешное соединение с ${selectedServer.name}`, 'success');
@@ -261,6 +346,15 @@ export function App() {
   const handleToggleFavorite = (id: string) => {
     const updated = DbService.toggleFavorite(id);
     setServers(updated);
+  };
+
+  const handleDeleteServer = (id: string) => {
+    const updated = DbService.deleteServer(id);
+    setServers(updated);
+    if (selectedServer?.id === id) {
+      setSelectedServer(updated[0] || null);
+    }
+    addToast('Подключение удалено', 'Сервер успешно удален из списка', 'info');
   };
 
   const handleAddServers = (newServers: VpnServer[]) => {
@@ -315,6 +409,8 @@ export function App() {
                 selectedServer={selectedServer}
                 onSelectServer={setSelectedServer}
                 onToggleFavorite={handleToggleFavorite}
+                onDeleteServer={handleDeleteServer}
+                onEditServer={handleEditServer}
                 onOpenAddSubscription={() => setIsSubscriptionOpen(true)}
                 onOpenHotspotModal={() => setActiveTab('hotspot')}
                 onPingAll={handlePingAll}
@@ -331,6 +427,8 @@ export function App() {
               selectedServer={selectedServer}
               onSelectServer={setSelectedServer}
               onToggleFavorite={handleToggleFavorite}
+              onDeleteServer={handleDeleteServer}
+              onEditServer={handleEditServer}
               onOpenAddSubscription={() => setIsSubscriptionOpen(true)}
               onOpenHotspotModal={() => setActiveTab('hotspot')}
               onPingAll={handlePingAll}
@@ -385,6 +483,17 @@ export function App() {
         isOpen={isSubscriptionOpen}
         onClose={() => setIsSubscriptionOpen(false)}
         onAddServers={handleAddServers}
+      />
+
+      {/* Edit Server Modal */}
+      <EditServerModal
+        isOpen={isEditModalOpen}
+        server={editingServer}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditingServer(null);
+        }}
+        onSave={handleSaveEditedServer}
       />
 
       {/* Toast Notification Layer */}

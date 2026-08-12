@@ -2,6 +2,7 @@ import React from 'react';
 import { Sliders, Network, Cpu } from 'lucide-react';
 import { AppSettings, CoreType, LogLevel } from '../types/vpn';
 import { GlassSelectDropdown, SelectOption } from './GlassSelectDropdown';
+import { TauriBridge } from '../services/tauriBridge';
 
 interface SettingsViewProps {
   settings: AppSettings;
@@ -69,7 +70,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
             <button
               type="button"
-              onClick={() => onUpdateSettings({ tunMode: !settings.tunMode })}
+              onClick={async () => {
+                const nextTun = !settings.tunMode;
+                if (nextTun) {
+                  const isAdmin = await TauriBridge.checkIsAdmin();
+                  if (!isAdmin) {
+                    await TauriBridge.requestAdminElevation();
+                    return;
+                  }
+                  const cores = await TauriBridge.checkInstalledCores();
+                  if (cores && !cores.wintun) {
+                    await TauriBridge.downloadCoreFromGithub('wintun' as any, '');
+                  }
+                }
+                onUpdateSettings({ tunMode: nextTun });
+              }}
               className={`w-11 h-6 rounded-full p-1 transition-colors duration-200 flex items-center flex-shrink-0 cursor-pointer ${
                 settings.tunMode ? 'bg-purple-600 justify-end' : 'bg-slate-800 justify-start'
               }`}
