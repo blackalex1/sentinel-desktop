@@ -75,7 +75,7 @@ export const CustomSelectDropdown: React.FC<CustomSelectDropdownProps> = ({
 
       {/* Custom Glass Dropdown Popup Menu */}
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 max-h-56 overflow-y-auto bg-[#0a0e22]/95 backdrop-blur-2xl border border-purple-500/30 rounded-xl shadow-[0_10px_35px_rgba(0,0,0,0.85)] p-1 space-y-0.5 animate-fadeIn">
+        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 max-h-56 overflow-y-auto bg-[#0a0e22] border border-purple-500/30 rounded-xl shadow-[0_10px_35px_rgba(0,0,0,0.85)] p-1 space-y-0.5 animate-fadeIn">
           {options.map((item) => {
             const isSelected = normVer(item.version) === normVer(value);
 

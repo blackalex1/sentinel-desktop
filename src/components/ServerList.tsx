@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Plus, RefreshCw, Smartphone, Filter } from 'lucide-react';
+import { Search, Plus, RefreshCw, Smartphone, Filter, Download } from 'lucide-react';
 import { VpnServer } from '../types/vpn';
 import { ServerCard } from './ServerCard';
+import { useI18n } from '../i18n/i18nContext';
 
 interface ServerListProps {
   servers: VpnServer[];
@@ -10,8 +11,11 @@ interface ServerListProps {
   onToggleFavorite: (id: string) => void;
   onDeleteServer: (id: string) => void;
   onEditServer: (server: VpnServer) => void;
+  onDuplicateServer: (server: VpnServer) => void;
+  onExportServerLink: (server: VpnServer) => void;
   onOpenAddSubscription: () => void;
   onOpenHotspotModal: () => void;
+  onOpenExportModal: () => void;
   onPingAll: () => void;
   isPinging: boolean;
 }
@@ -23,20 +27,24 @@ export const ServerList: React.FC<ServerListProps> = ({
   onToggleFavorite,
   onDeleteServer,
   onEditServer,
+  onDuplicateServer,
+  onExportServerLink,
   onOpenAddSubscription,
   onOpenHotspotModal,
+  onOpenExportModal,
   onPingAll,
   isPinging,
 }) => {
+  const { t } = useI18n();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProtocolFilter, setSelectedProtocolFilter] = useState<string>('ALL');
 
   // Dynamically compute active filter tabs based on available servers in list
   const filterTabs = useMemo(() => {
-    const tabs = [{ id: 'ALL', label: 'Все' }];
+    const tabs = [{ id: 'ALL', label: t('server_tab_all') }];
 
     if (servers.some(s => s.isFavorite)) {
-      tabs.push({ id: 'FAVORITES', label: 'Избранное' });
+      tabs.push({ id: 'FAVORITES', label: t('server_tab_favorites') });
     }
 
     if (servers.some(s => s.protocol === 'VLESS')) {
@@ -68,23 +76,26 @@ export const ServerList: React.FC<ServerListProps> = ({
     }
 
     return tabs;
-  }, [servers]);
+  }, [servers, t]);
 
   // Fallback to ALL if active tab is no longer in filterTabs
   const activeFilter = filterTabs.some(t => t.id === selectedProtocolFilter)
     ? selectedProtocolFilter
     : 'ALL';
 
-  const filteredServers = servers.filter(server => {
-    const matchesSearch = 
-      server.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      server.address.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    if (activeFilter === 'ALL') return matchesSearch;
-    if (activeFilter === 'HOTSPOT') return matchesSearch && server.isHotspot;
-    if (activeFilter === 'FAVORITES') return matchesSearch && server.isFavorite;
-    return matchesSearch && server.protocol === activeFilter;
-  });
+  const filteredServers = useMemo(() => {
+    const lowerQuery = searchQuery.toLowerCase();
+    return servers.filter(server => {
+      const matchesSearch = !lowerQuery ||
+        server.name.toLowerCase().includes(lowerQuery) ||
+        server.address.toLowerCase().includes(lowerQuery);
+      
+      if (activeFilter === 'ALL') return matchesSearch;
+      if (activeFilter === 'HOTSPOT') return matchesSearch && server.isHotspot;
+      if (activeFilter === 'FAVORITES') return matchesSearch && server.isFavorite;
+      return matchesSearch && server.protocol === activeFilter;
+    });
+  }, [servers, searchQuery, activeFilter]);
 
   return (
     <div className="flex flex-col h-full px-4 py-2 select-none">
@@ -96,7 +107,7 @@ export const ServerList: React.FC<ServerListProps> = ({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Поиск серверов и узлов..."
+            placeholder={t('server_search_ph')}
             className="w-full pl-9 pr-3 py-1.5 text-xs bg-surface-elevated/70 border border-surface-border rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:border-purple-500/50 transition-colors font-sans"
           />
         </div>
@@ -106,9 +117,18 @@ export const ServerList: React.FC<ServerListProps> = ({
           onClick={onPingAll}
           disabled={isPinging}
           className="p-2 bg-surface-elevated/70 border border-surface-border hover:border-purple-500/40 text-slate-300 hover:text-purple-300 rounded-xl transition-all duration-300 active:scale-95 flex-shrink-0 cursor-pointer"
-          title="Проверить пинг всех серверов"
+          title="Проверить пинг"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isPinging ? 'animate-spin text-purple-400' : ''}`} />
+        </button>
+
+        {/* Export All / Backup Button */}
+        <button
+          onClick={onOpenExportModal}
+          className="p-2 bg-surface-elevated/70 border border-surface-border hover:border-teal-500/40 text-slate-300 hover:text-teal-300 rounded-xl transition-all duration-300 active:scale-95 flex-shrink-0 cursor-pointer"
+          title="Экспорт и резервное копирование"
+        >
+          <Download className="w-3.5 h-3.5" />
         </button>
 
         {/* Add Subscription Link Button */}
@@ -117,7 +137,7 @@ export const ServerList: React.FC<ServerListProps> = ({
           className="flex items-center space-x-1 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-medium shadow-md transition-all duration-300 active:scale-95 flex-shrink-0 cursor-pointer"
         >
           <Plus className="w-3.5 h-3.5" />
-          <span>Добавить</span>
+          <span>{t('server_add_btn')}</span>
         </button>
       </div>
 
@@ -152,14 +172,16 @@ export const ServerList: React.FC<ServerListProps> = ({
               onToggleFavorite={() => onToggleFavorite(server.id)}
               onDelete={() => onDeleteServer(server.id)}
               onEdit={() => onEditServer(server)}
+              onDuplicate={() => onDuplicateServer(server)}
+              onExportLink={() => onExportServerLink(server)}
             />
           ))
         ) : (
           <div className="flex flex-col items-center justify-center py-10 text-center">
             <Filter className="w-8 h-8 text-slate-600 mb-2" />
-            <p className="text-xs text-slate-400 font-medium">Серверы не найдены</p>
+            <p className="text-xs text-slate-400 font-medium">{t('server_not_found')}</p>
             <p className="text-[11px] text-slate-500 mt-1 max-w-xs">
-              Добавьте ссылку подписки Spectre-panel или подключитесь к Sentinel Hotspot
+              {t('server_empty_hint')}
             </p>
             <button
               onClick={onOpenHotspotModal}

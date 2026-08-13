@@ -20,7 +20,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn select-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 animate-fadeIn select-none">
       <div className="relative w-full max-w-lg double-bezel-shell bg-[#080914] border border-white/10 shadow-2xl overflow-hidden">
         <div className="double-bezel-core p-5">
           {/* Header */}

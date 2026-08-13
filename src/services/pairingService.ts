@@ -1,4 +1,5 @@
 import { TauriBridge } from './tauriBridge';
+import { VpnServer } from '../types/vpn';
 
 export interface PairRequestResult {
   success: boolean;
@@ -9,6 +10,7 @@ export interface PairRequestResult {
   username?: string;
   password?: string;
   message?: string;
+  server?: VpnServer;
 }
 
 export class SentinelPairingService {
@@ -23,15 +25,35 @@ export class SentinelPairingService {
     const nativeResult = await TauriBridge.requestPhonePairing(customGatewayIp, pin);
     if (nativeResult) {
       console.log('[Sentinel Pairing] Native Rust pairing returned:', nativeResult);
+      const serverIp = (nativeResult.ip || customGatewayIp || '').trim();
+      const serverPort = nativeResult.port || 10808;
+      const proxyType = ((nativeResult.proxyType as any) || 'SOCKS5').toUpperCase() as 'SOCKS5' | 'HTTP';
+      const username = nativeResult.username?.trim();
+      const password = nativeResult.password?.trim();
+
+      const server: VpnServer = {
+        id: `hotspot_${serverIp}_${serverPort}`,
+        name: `Sentinel Hotspot (${serverIp})`,
+        protocol: proxyType,
+        address: serverIp,
+        port: serverPort,
+        username: username || undefined,
+        password: password || undefined,
+        isHotspot: true,
+        countryCode: 'LAN',
+        rawLink: `${proxyType.toLowerCase()}://${username && password ? `${username}:${password}@` : ''}${serverIp}:${serverPort}#Sentinel%20Hotspot`,
+      };
+
       return {
         success: nativeResult.success,
         pin: nativeResult.pin || pin,
-        proxyType: (nativeResult.proxyType as any) || 'SOCKS5',
-        ip: nativeResult.ip,
-        port: nativeResult.port || 10808,
-        username: nativeResult.username,
-        password: nativeResult.password,
-        message: nativeResult.message || (nativeResult.success ? `Сопряжение подтверждено на смартфоне (${nativeResult.ip})!` : 'Ошибка сопряжения'),
+        proxyType,
+        ip: serverIp,
+        port: serverPort,
+        username: username || undefined,
+        password: password || undefined,
+        message: nativeResult.message || (nativeResult.success ? `Сопряжение подтверждено на смартфоне (${serverIp})!` : 'Ошибка сопряжения'),
+        server: nativeResult.success ? server : undefined,
       };
     }
 
@@ -110,15 +132,35 @@ export class SentinelPairingService {
         if (response.ok) {
           const data = await response.json();
           if (data && data.success) {
+            const serverIp = data.ip || ip;
+            const serverPort = data.port || data.socksPort || 10808;
+            const proxyType = ((data.proxyType as any) || 'SOCKS5').toUpperCase() as 'SOCKS5' | 'HTTP';
+            const username = data.username?.trim();
+            const password = data.password?.trim();
+
+            const server: VpnServer = {
+              id: `hotspot_${serverIp}_${serverPort}`,
+              name: `Sentinel Hotspot (${serverIp})`,
+              protocol: proxyType,
+              address: serverIp,
+              port: serverPort,
+              username: username || undefined,
+              password: password || undefined,
+              isHotspot: true,
+              countryCode: 'LAN',
+              rawLink: `${proxyType.toLowerCase()}://${username && password ? `${username}:${password}@` : ''}${serverIp}:${serverPort}#Sentinel%20Hotspot`,
+            };
+
             return {
               success: true,
               pin,
-              proxyType: data.proxyType || 'SOCKS5',
-              ip: data.ip || ip,
-              port: data.port || data.socksPort || 10808,
-              username: data.username,
-              password: data.password,
-              message: `Сопряжение подтверждено на смартфоне (${ip})!`,
+              proxyType,
+              ip: serverIp,
+              port: serverPort,
+              username: username || undefined,
+              password: password || undefined,
+              message: `Сопряжение подтверждено на смартфоне (${serverIp})!`,
+              server,
             };
           }
         } else if (response.status === 403) {
@@ -136,6 +178,79 @@ export class SentinelPairingService {
     return {
       success: false,
       message: `Не удалось связаться со смартфоном (проверены адреса: ${targetIps.join(', ')}). Убедитесь, что VPN в x-prox активен.`,
+    };
+  }
+
+  /**
+   * Directly query active phone proxy config without PIN dialog
+   */
+  static async fetchLiveConfig(customGatewayIp?: string): Promise<PairRequestResult> {
+    const candidatePorts = [18080, 18081, 18082, 19080, 19081];
+    const targetIps: string[] = [];
+
+    if (customGatewayIp && customGatewayIp.trim()) {
+      targetIps.push(customGatewayIp.trim());
+    } else {
+      const gws = await TauriBridge.getDefaultGateways();
+      if (gws && gws.length > 0) {
+        targetIps.push(...gws);
+      }
+    }
+
+    for (const ip of targetIps) {
+      for (const port of candidatePorts) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 1200);
+
+          const res = await fetch(`http://${ip}:${port}/pair/config`, {
+            method: 'GET',
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success || data.status === 'ok') {
+              const serverPort = data.port || data.socksPort || 10808;
+              const proxyType = ((data.proxyType as any) || 'SOCKS5').toUpperCase() as 'SOCKS5' | 'HTTP';
+              const username = data.authRequired ? data.username?.trim() : undefined;
+              const password = data.authRequired ? data.password?.trim() : undefined;
+
+              const server: VpnServer = {
+                id: `hotspot_${ip}_${serverPort}`,
+                name: `Sentinel Hotspot (${ip})`,
+                protocol: proxyType,
+                address: ip,
+                port: serverPort,
+                username: username || undefined,
+                password: password || undefined,
+                isHotspot: true,
+                countryCode: 'LAN',
+                rawLink: `${proxyType.toLowerCase()}://${username && password ? `${username}:${password}@` : ''}${ip}:${serverPort}#Sentinel%20Hotspot`,
+              };
+
+              return {
+                success: true,
+                proxyType,
+                ip,
+                port: serverPort,
+                username,
+                password,
+                message: `Активный конфиг получен с телефона (${ip}:${serverPort})!`,
+                server,
+              };
+            }
+          }
+        } catch {
+          // continue probe
+        }
+      }
+    }
+
+    return {
+      success: false,
+      message: 'Не удалось получить конфиг от телефона. Убедитесь, что VPN запущен в приложении на телефоне.',
     };
   }
 }

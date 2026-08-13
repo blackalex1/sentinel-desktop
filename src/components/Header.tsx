@@ -1,7 +1,8 @@
 import React from 'react';
-import { Minus, X, Cpu, Smartphone } from 'lucide-react';
+import { Minus, X, Cpu, Smartphone, Globe } from 'lucide-react';
 import { CoreType, ConnectionStatus } from '../types/vpn';
 import { TauriBridge } from '../services/tauriBridge';
+import { useI18n } from '../i18n/i18nContext';
 
 interface HeaderProps {
   status: ConnectionStatus;
@@ -17,6 +18,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenCoreManager,
   onOpenHotspot,
 }) => {
+  const { language, setLanguage, t } = useI18n();
   const isConnected = status === 'connected';
 
   const getCoreDisplayName = (core: CoreType) => {
@@ -52,7 +54,7 @@ export const Header: React.FC<HeaderProps> = ({
     <header
       data-tauri-drag-region
       onMouseDown={handleHeaderMouseDown}
-      className="flex items-center justify-between px-4 py-2 bg-[#080914]/90 backdrop-blur-xl border-b border-white/10 select-none cursor-default"
+      className="flex items-center justify-between px-4 py-2 bg-[#080914] border-b border-white/10 select-none cursor-default"
     >
       {/* Dynamic Status Indicator Breadcrumb */}
       <div data-tauri-drag-region className="flex items-center space-x-2">
@@ -62,12 +64,27 @@ export const Header: React.FC<HeaderProps> = ({
             : 'bg-white/[0.03] text-slate-400 border-white/10'
         }`}>
           <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-emerald-400 animate-ping' : 'bg-slate-500'}`} />
-          <span>{isConnected ? 'СЕТЬ ЗАЩИЩЕНА' : 'ОТКЛЮЧЕНО'}</span>
+          <span>{isConnected ? t('status_connected') : t('status_disconnected')}</span>
         </div>
       </div>
 
       {/* Core Selector & Actions */}
       <div className="flex items-center space-x-2 flex-shrink-0">
+        {/* Language Toggle Button */}
+        <button
+          type="button"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            setLanguage(language === 'ru' ? 'en' : 'ru');
+          }}
+          className="flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-[#0e1324] border border-white/10 hover:border-purple-500/40 text-xs font-mono font-bold text-slate-300 hover:text-white transition-all cursor-pointer shadow-sm active:scale-95"
+          title="Switch Language / Сменить язык"
+        >
+          <Globe className="w-3.5 h-3.5 text-purple-400" />
+          <span className="uppercase text-[11px] text-purple-300">{language}</span>
+        </button>
+
         {/* Sentinel Hotspot Integration */}
         <button
           type="button"
@@ -80,7 +97,7 @@ export const Header: React.FC<HeaderProps> = ({
           title="Интеграция с Sentinel Hotspot"
         >
           <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
-          <span className="text-[11px] font-mono">Hotspot</span>
+          <span className="text-[11px] font-mono">{t('header_hotspot_btn')}</span>
         </button>
 
         {/* Active Core Badge Button */}
@@ -92,7 +109,7 @@ export const Header: React.FC<HeaderProps> = ({
             onOpenCoreManager();
           }}
           className="flex items-center space-x-1.5 px-2.5 py-1 rounded-xl bg-[#0e1324] border border-white/10 hover:border-purple-500/40 hover:bg-purple-500/10 text-slate-300 hover:text-purple-300 text-xs font-medium transition-all cursor-pointer"
-          title="Менеджер ядер прокси и релизов GitHub"
+          title={t('cores_subtitle')}
         >
           <Cpu className="w-3.5 h-3.5 text-purple-400" />
           <span className="text-[11px] font-mono font-bold">{getCoreDisplayName(activeCore)}</span>

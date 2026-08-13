@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Power, Radio, ChevronDown, Check } from 'lucide-react';
 import { ConnectionStatus, VpnServer } from '../types/vpn';
+import { useI18n } from '../i18n/i18nContext';
 
 interface ConnectRingProps {
   status: ConnectionStatus;
@@ -17,6 +18,7 @@ export const ConnectRing: React.FC<ConnectRingProps> = ({
   onToggleConnect,
   onSelectServer,
 }) => {
+  const { t } = useI18n();
   const [durationSeconds, setDurationSeconds] = useState(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -82,8 +84,8 @@ export const ConnectRing: React.FC<ConnectRingProps> = ({
       <div className="relative flex items-center justify-center my-1">
         {isConnected && (
           <>
-            <div className="absolute w-40 h-40 rounded-full bg-emerald-500/10 animate-radar-ping pointer-events-none" />
-            <div className="absolute w-44 h-44 rounded-full bg-cyan-500/5 animate-pulse-slow pointer-events-none" />
+            <div className="absolute w-40 h-40 rounded-full bg-emerald-500/10 animate-radar-ping pointer-events-none transform-gpu will-change-transform" />
+            <div className="absolute w-44 h-44 rounded-full bg-cyan-500/5 animate-pulse-slow pointer-events-none transform-gpu will-change-transform" />
           </>
         )}
 
@@ -116,11 +118,11 @@ export const ConnectRing: React.FC<ConnectRingProps> = ({
 
             {/* Status Label */}
             <span className="text-[11px] font-bold tracking-wider uppercase font-mono mt-0.5">
-              {status === 'connected' && 'ЗАЩИЩЕНО'}
-              {status === 'connecting' && 'ПОДКЛЮЧЕНИЕ...'}
-              {status === 'disconnecting' && 'ОТКЛЮЧЕНИЕ...'}
-              {status === 'disconnected' && 'ПОДКЛЮЧИТЬ'}
-              {status === 'error' && 'ОШИБКА'}
+              {status === 'connected' && t('status_connected')}
+              {status === 'connecting' && t('status_connecting')}
+              {status === 'disconnecting' && t('status_disconnecting')}
+              {status === 'disconnected' && t('dash_click_to_connect')}
+              {status === 'error' && t('status_error')}
             </span>
 
             {/* Active Duration Timer */}
@@ -138,7 +140,7 @@ export const ConnectRing: React.FC<ConnectRingProps> = ({
         <div className="relative mt-3 mb-1 z-50" ref={dropdownRef}>
           <button
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="flex items-center space-x-2 px-4 py-1.5 rounded-full bg-surface-elevated/90 border border-surface-border hover:border-purple-500/40 text-xs font-medium text-slate-300 backdrop-blur-md shadow-lg transition-all active:scale-98 cursor-pointer group"
+            className="flex items-center space-x-2 px-4 py-1.5 rounded-full bg-surface-elevated/95 border border-surface-border hover:border-purple-500/40 text-xs font-medium text-slate-300 shadow-lg transition-all active:scale-98 cursor-pointer group"
           >
             <Radio className={`w-3.5 h-3.5 ${isConnected ? 'text-emerald-400 animate-pulse' : 'text-purple-400'}`} />
             <span className="font-semibold text-slate-100 max-w-[180px] truncate">{selectedServer.name}</span>
@@ -157,7 +159,7 @@ export const ConnectRing: React.FC<ConnectRingProps> = ({
 
           {/* Floating Glass Dropdown Menu */}
           {isDropdownOpen && (
-            <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-80 max-h-64 overflow-y-auto rounded-2xl bg-[#0c0c16]/98 border border-purple-500/30 shadow-[0_15px_45px_rgba(0,0,0,0.9)] backdrop-blur-2xl p-1.5 z-50 animate-fadeIn">
+            <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-80 max-h-64 overflow-y-auto rounded-2xl bg-[#0c0c16] border border-purple-500/30 shadow-[0_15px_45px_rgba(0,0,0,0.9)] p-1.5 z-50 animate-fadeIn">
               <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-slate-400 border-b border-white/5 mb-1">
                 Выберите сервер подключения
               </div>

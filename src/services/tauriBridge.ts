@@ -1,9 +1,21 @@
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { VpnServer, AppSettings, CoreType } from '../types/vpn';
+
+export interface DownloadProgressPayload {
+  core_type: string;
+  percent: number;
+  bytes_downloaded: number;
+  total_bytes: number;
+}
+
+// Cached at module load time — avoids repeated property lookups on every call
+const IS_TAURI_AVAILABLE = typeof window !== 'undefined' &&
+  (!!(window as any).__TAURI__ || !!(window as any).__TAURI_INTERNALS__);
 
 export class TauriBridge {
   static isTauriAvailable(): boolean {
-    return typeof window !== 'undefined' && (!!(window as any).__TAURI__ || !!(window as any).__TAURI_INTERNALS__);
+    return IS_TAURI_AVAILABLE;
   }
 
   /**
@@ -35,8 +47,7 @@ export class TauriBridge {
     } catch (err: any) {
       console.error('[VPN Bridge] Tauri connect_vpn failed:', err);
       if (!this.isTauriAvailable()) {
-        await new Promise(res => setTimeout(res, 500));
-        return true;
+        return false; // Dev/browser mode — VPN not available
       }
       return false;
     }
@@ -51,6 +62,18 @@ export class TauriBridge {
       return await invoke<string[]>('get_core_logs');
     } catch {
       return [];
+    }
+  }
+
+  /**
+   * Clear all buffered live core logs from Rust memory
+   */
+  static async clearCoreLogs(): Promise<void> {
+    if (!this.isTauriAvailable()) return;
+    try {
+      await invoke('clear_core_logs');
+    } catch (err) {
+      console.warn('[TauriBridge] clear_core_logs error:', err);
     }
   }
 
@@ -113,8 +136,7 @@ export class TauriBridge {
       return await invoke<boolean>('disconnect_vpn');
     } catch (err) {
       console.error('Tauri disconnect_vpn failed or fallback to web:', err);
-      await new Promise(res => setTimeout(res, 400));
-      return true;
+      return false;
     }
   }
 
@@ -125,9 +147,7 @@ export class TauriBridge {
     try {
       return await invoke<number>('ping_server', { address, port });
     } catch {
-      const base = address.length * 4 + (port % 30);
-      const randomJitter = Math.floor(Math.random() * 12);
-      return Math.min(Math.max(base + randomJitter, 16), 180);
+      return -1; // Indicates ping failed — UI should show "—" not a fabricated number
     }
   }
 
@@ -165,14 +185,85 @@ export class TauriBridge {
     onProgress?: (percent: number) => void
   ): Promise<boolean> {
     console.log(`[Core Downloader] Downloading ${coreType} from ${downloadUrl}`);
+    let unlisten: (() => void) | undefined;
     try {
-      if (onProgress) onProgress(30);
+      if (onProgress) onProgress(5);
+
+      if (onProgress && this.isTauriAvailable()) {
+        try {
+          unlisten = await listen<DownloadProgressPayload>('download-progress', (event) => {
+            const ct = event.payload.core_type;
+            if (ct === coreType || (coreType === 'singbox' && (ct === 'singbox' || ct === 'sing-box'))) {
+              onProgress(event.payload.percent);
+            }
+          });
+        } catch (e) {
+          console.warn('[Core Downloader] Failed setting up progress listener:', e);
+        }
+      }
+
       const res = await invoke<boolean>('download_core_binary', { coreType, downloadUrl });
       if (onProgress) onProgress(100);
       return res;
     } catch (err) {
       console.error('Tauri download_core_binary failed:', err);
       return false;
+    } finally {
+      if (unlisten) unlisten();
+    }
+  }
+
+  /**
+   * Check status and sizes of local GeoIP and Geosite database files
+   */
+  static async checkGeoDatabases(): Promise<{
+    geoip_dat_exists: boolean;
+    geoip_dat_size: number;
+    geoip_dat_mtime: number;
+    geosite_dat_exists: boolean;
+    geosite_dat_size: number;
+    geosite_dat_mtime: number;
+    geoip_db_exists: boolean;
+    geoip_db_size: number;
+    geoip_db_mtime: number;
+    geosite_db_exists: boolean;
+    geosite_db_size: number;
+    geosite_db_mtime: number;
+  } | null> {
+    try {
+      return await invoke('check_geo_databases');
+    } catch (err) {
+      console.error('checkGeoDatabases error:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Update GeoIP and Geosite database files directly from Fastly CDN mirrors
+   */
+  static async updateGeoDatabases(onProgress?: (percent: number) => void): Promise<boolean> {
+    let unlisten: (() => void) | null = null;
+    try {
+      if (onProgress && this.isTauriAvailable()) {
+        try {
+          unlisten = await listen<DownloadProgressPayload>('download-progress', (event) => {
+            if (event.payload.core_type.startsWith('geo')) {
+              onProgress(event.payload.percent);
+            }
+          });
+        } catch (e) {
+          console.warn('[Geo Updater] Failed setting up progress listener:', e);
+        }
+      }
+
+      const res = await invoke<boolean>('update_geo_databases');
+      if (onProgress) onProgress(100);
+      return res;
+    } catch (err) {
+      console.error('Tauri update_geo_databases failed:', err);
+      return false;
+    } finally {
+      if (unlisten) unlisten();
     }
   }
 
@@ -208,6 +299,62 @@ export class TauriBridge {
       await invoke('close_app_window');
     } catch (err) {
       console.error('Tauri close_app_window error:', err);
+    }
+  }
+
+  /**
+   * Open web URL in native system browser
+   */
+  static async openUrl(url: string): Promise<void> {
+    if (!url) return;
+    if (this.isTauriAvailable()) {
+      try {
+        await invoke('open_url', { url });
+        return;
+      } catch (err) {
+        console.warn('[TauriBridge] open_url command failed, falling back to window.open:', err);
+      }
+    }
+    window.open(url, '_blank');
+  }
+
+  /**
+   * Write data directly into binaries/<key>.json portable store
+   */
+  static async saveStoreData(key: string, data: any): Promise<boolean> {
+    const jsonStr = typeof data === 'string' ? data : JSON.stringify(data);
+    if (!this.isTauriAvailable()) return true;
+    try {
+      return await invoke<boolean>('save_store_data', { key, dataJson: jsonStr });
+    } catch (err) {
+      console.warn(`[TauriBridge] saveStoreData failed for key ${key}:`, err);
+      return false;
+    }
+  }
+
+  /**
+   * Read data directly from binaries/<key>.json portable store
+   */
+  static async readStoreData<T = any>(key: string): Promise<T | null> {
+    if (!this.isTauriAvailable()) {
+      const local = localStorage.getItem(key);
+      if (!local) return null;
+      try { return JSON.parse(local) as T; } catch { return local as any; }
+    }
+    try {
+      const jsonStr = await invoke<string>('read_store_data', { key });
+      if (jsonStr && jsonStr.trim().length > 0) {
+        localStorage.setItem(key, jsonStr);
+        try { return JSON.parse(jsonStr) as T; } catch { return jsonStr as any; }
+      }
+      const local = localStorage.getItem(key);
+      if (!local) return null;
+      try { return JSON.parse(local) as T; } catch { return local as any; }
+    } catch (err) {
+      console.warn(`[TauriBridge] readStoreData failed for key ${key}:`, err);
+      const local = localStorage.getItem(key);
+      if (!local) return null;
+      try { return JSON.parse(local) as T; } catch { return local as any; }
     }
   }
 }

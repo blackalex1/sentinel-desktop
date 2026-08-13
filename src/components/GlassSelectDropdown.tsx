@@ -59,7 +59,7 @@ export function GlassSelectDropdown<T extends string = string>({
 
       {/* Floating Glass Dropdown Popup Menu */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-1.5 z-50 max-h-60 overflow-y-auto bg-[#0a0e22]/98 backdrop-blur-2xl border border-purple-500/30 rounded-xl shadow-[0_10px_35px_rgba(0,0,0,0.9)] p-1 space-y-0.5 animate-fadeIn min-w-full w-max max-w-[220px]">
+        <div className="absolute right-0 top-full mt-1.5 z-50 max-h-60 overflow-y-auto bg-[#0a0e22] border border-purple-500/30 rounded-xl shadow-[0_10px_35px_rgba(0,0,0,0.9)] p-1 space-y-0.5 animate-fadeIn min-w-full w-max max-w-[220px]">
           {options.map((option) => {
             const isSelected = option.value === value;
 

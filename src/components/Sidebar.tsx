@@ -4,6 +4,8 @@ import { ConnectionStatus } from '../types/vpn';
 import { SentinelLogo } from './SentinelLogo';
 import { TauriBridge } from '../services/tauriBridge';
 
+import { useI18n } from '../i18n/i18nContext';
+
 export type TabType = 'dashboard' | 'servers' | 'routing' | 'cores' | 'logs' | 'hotspot' | 'settings';
 
 interface SidebarProps {
@@ -19,14 +21,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
   status,
   activeCore,
 }) => {
+  const { t } = useI18n();
+
   const menuItems: { id: TabType; label: string; icon: React.FC<{ className?: string }> }[] = [
-    { id: 'dashboard', label: 'Панель управления', icon: LayoutDashboard },
-    { id: 'servers', label: 'Подключения', icon: Radio },
-    { id: 'routing', label: 'Маршрутизация', icon: SlidersHorizontal },
-    { id: 'cores', label: 'Ядра прокси', icon: Cpu },
-    { id: 'logs', label: 'Логи ядра', icon: Terminal },
-    { id: 'hotspot', label: 'Sentinel Hotspot', icon: Wifi },
-    { id: 'settings', label: 'Настройки', icon: Settings },
+    { id: 'dashboard', label: t('nav_dashboard'), icon: LayoutDashboard },
+    { id: 'servers', label: t('nav_connections'), icon: Radio },
+    { id: 'routing', label: t('nav_routing'), icon: SlidersHorizontal },
+    { id: 'cores', label: t('nav_cores'), icon: Cpu },
+    { id: 'logs', label: t('nav_logs'), icon: Terminal },
+    { id: 'hotspot', label: t('nav_hotspot'), icon: Wifi },
+    { id: 'settings', label: t('nav_settings'), icon: Settings },
   ];
 
   const handleHeaderMouseDown = (e: React.MouseEvent) => {
@@ -81,13 +85,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Bottom Footer Info (Core & Status) */}
       <div className="p-3.5 border-t border-white/10 bg-[#060710]">
         <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 mb-1">
-          <span>Активное ядро:</span>
+          <span>{t('nav_active_core')}</span>
           <span className="text-purple-300 font-bold uppercase">{activeCore}</span>
         </div>
         <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
-          <span>Статус VPN:</span>
+          <span>{t('nav_vpn_status')}</span>
           <span className={`font-bold ${status === 'connected' ? 'text-emerald-400' : 'text-slate-400'}`}>
-            {status === 'connected' ? 'ЗАЩИЩЕНО' : 'ОТКЛЮЧЕНО'}
+            {status === 'connected' ? t('status_connected') : t('status_disconnected')}
           </span>
         </div>
       </div>

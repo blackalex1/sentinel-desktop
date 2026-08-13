@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { X, Link, Download, Layers, Shield } from 'lucide-react';
 import { VpnServer } from '../types/vpn';
 import { ProxyParser } from '../services/proxyParser';
+import { TauriBridge } from '../services/tauriBridge';
+import { useI18n } from '../i18n/i18nContext';
 
 interface SubscriptionModalProps {
   isOpen: boolean;
@@ -14,6 +16,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   onClose,
   onAddServers,
 }) => {
+  const { t } = useI18n();
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -52,7 +55,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn select-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 animate-fadeIn select-none">
       <div className="relative w-full max-w-lg double-bezel-shell bg-[#0a0a12] border border-white/10 shadow-2xl overflow-hidden">
         <div className="double-bezel-core p-5">
           {/* Header */}
@@ -62,18 +65,9 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 <Link className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-100 font-sans">Импорт подписки / Прокси-ссылок</h3>
+                <h3 className="text-sm font-bold text-slate-100 font-sans">{t('sub_modal_title')}</h3>
                 <p className="text-xs text-slate-400 font-mono flex items-center space-x-1">
-                  <span>Поддержка</span>
-                  <a
-                    href="https://github.com/blackalex1/Spectre-panel"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="underline text-purple-300 hover:text-purple-100"
-                  >
-                    Spectre-panel
-                  </a>
-                  <span>, VLESS, HY2, SOCKS5</span>
+                  <span>{t('sub_modal_desc')}</span>
                 </p>
               </div>
             </div>
@@ -87,29 +81,23 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
 
           <form onSubmit={handleImport} className="space-y-4 my-3">
             <div>
-              <label className="block text-xs font-mono text-slate-300 mb-1">
-                Вставьте URL подписки или vless:// / hy2:// / socks5:// ссылки:
-              </label>
               <textarea
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 rows={5}
-                placeholder={`vless://uuid@host:443?security=reality#Server\nhy2://pass@host:443#Hysteria2\nsocks5://user:pass@host:10808#Hotspot`}
+                placeholder={t('sub_modal_textarea_ph')}
                 className="w-full p-3 text-xs font-mono bg-surface-elevated/80 border border-surface-border rounded-xl text-slate-100 placeholder-slate-600 focus:outline-none focus:border-purple-500/50 resize-none"
               />
             </div>
 
-            <div className="flex items-center justify-between pt-2">
-              <span className="text-[10px] text-slate-500 font-mono">
-                Поддерживаются одиночные ссылки и пакетные строки Base64
-              </span>
+            <div className="flex items-center justify-end pt-2">
               <div className="flex items-center space-x-2">
                 <button
                   type="button"
                   onClick={onClose}
                   className="px-3.5 py-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors"
                 >
-                  Отмена
+                  {t('route_cancel')}
                 </button>
                 <button
                   type="submit"
@@ -117,7 +105,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                   className="flex items-center space-x-1.5 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium text-xs rounded-xl shadow-glow-violet transition-all active:scale-95"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>Импортировать</span>
+                  <span>{t('sub_modal_import_btn')}</span>
                 </button>
               </div>
             </div>

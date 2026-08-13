@@ -1,18 +1,21 @@
 import { VpnServer, AppSettings, CoreType } from '../types/vpn';
+import { IP_CHECK_DOMAINS } from '../constants/routingDomains';
 
-// Full 47 IP Checkers matched with Spectre Panel backend specs (backend/database/crud/routing.py)
-const IP_CHECK_DOMAINS = [
-  "api.ipify.org", "ipify.org", "checkip.amazonaws.com", "ifconfig.me", "ifconfig.co", "ifconfig.io",
-  "telega.me", "2ip.ru", "2ip.io", "2ip.ua", "2ip.me",
-  "myip.ru", "myip.com", "icanhazip.com", "wtfismyip.com", "ip.sb",
-  "ipapi.co", "ip-api.com", "ipapi.com", "db-ip.com", "whoer.net",
-  "ipwhois.io", "ipwho.is", "ipaddress.my", "ipaddress.com", "check-host.net",
-  "browserleaks.com", "ip2location.com", "ip2location.io", "showmyip.com",
-  "whatsmyip.org", "whatismyip.com", "whatsmyipaddress.com", "whatismyipaddress.com",
-  "dnsleaktest.com", "ipleak.net", "ip.me", "ip.cn", "ip138.com",
-  "ident.me", "curlmyip.org", "eth0.me", "myexternalip.com", "ip.nf",
-  "trackip.net", "checkip.dyndns.org"
-];
+/** Map app log level string to Sing-box log level */
+function toSingboxLogLevel(lvl: string): string {
+  if (lvl === 'warn') return 'warn';
+  if (lvl === 'error') return 'error';
+  if (lvl === 'debug' || lvl === 'trace') return 'debug';
+  return 'info';
+}
+
+/** Map app log level string to Xray log level */
+function toXrayLogLevel(lvl: string): string {
+  if (lvl === 'warn') return 'warning';
+  if (lvl === 'error') return 'error';
+  if (lvl === 'debug' || lvl === 'trace') return 'debug';
+  return 'info';
+}
 
 export class ConfigBuilder {
   /**
@@ -51,17 +54,22 @@ export class ConfigBuilder {
     const targetCore: CoreType = settings.activeCore || 'singbox';
     let configObject: object;
 
-    switch (targetCore) {
-      case 'singbox':
-        configObject = this.buildSingboxConfig(server, settings);
-        break;
-      case 'hysteria':
-        configObject = this.buildHysteria2Config(server, settings);
-        break;
-      case 'xray':
-      default:
-        configObject = this.buildXrayConfig(server, settings);
-        break;
+    try {
+      switch (targetCore) {
+        case 'singbox':
+          configObject = this.buildSingboxConfig(server, settings);
+          break;
+        case 'hysteria':
+          configObject = this.buildHysteria2Config(server, settings);
+          break;
+        case 'xray':
+          configObject = this.buildXrayConfig(server, settings);
+          break;
+        default:
+          throw new Error(`Неизвестное ядро: ${targetCore}. Поддерживаются: singbox, xray, hysteria.`);
+      }
+    } catch (err) {
+      throw new Error(`ConfigBuilder.buildConfig failed for core '${targetCore}': ${err instanceof Error ? err.message : String(err)}`);
     }
 
     return {
@@ -81,7 +89,7 @@ export class ConfigBuilder {
     return {
       log: {
         disabled: false,
-        level: lvl === 'warn' ? 'warn' : (lvl === 'error' ? 'error' : (lvl === 'debug' ? 'debug' : 'info')),
+        level: toSingboxLogLevel(lvl),
         output: '',
         timestamp: true
       },
@@ -139,7 +147,7 @@ export class ConfigBuilder {
     const outbound = this.buildXrayOutbound(server);
     const xrayRules = this.buildXrayRouteRules(settings);
     const lvl = settings.logLevel || 'info';
-    const xrayLevel = lvl === 'warn' ? 'warning' : (lvl === 'error' ? 'error' : (lvl === 'debug' ? 'debug' : 'info'));
+    const xrayLevel = toXrayLogLevel(lvl);
 
     return {
       log: {
@@ -204,9 +212,9 @@ export class ConfigBuilder {
   // --- Sing-box Routing Rules Builder ---
 
   private static buildSingboxRouteRules(settings: AppSettings): any[] {
-    const rules: any[] = [
-      { ip_cidr: ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '127.0.0.0/8'], outbound: 'direct' }
-    ];
+    const rules: any[] = [];
+    // Note: LAN rules are controlled by the 'local_ip' Quick Security Rule below.
+    // No hardcoded LAN rule here to avoid duplicate/conflicting outbounds.
 
     // Apply Quick Security Rules (BitTorrent, Ads, CN, RU, US, IP Services)
     if (settings.quickSecurityRules) {
@@ -214,7 +222,13 @@ export class ConfigBuilder {
         if (!qr.enabled) continue;
         const outbound = qr.action === 'BLOCKED' ? 'block' : (qr.action === 'DIRECT' ? 'direct' : 'proxy');
 
-        if (qr.id === 'bt') {
+        if (qr.id === 'local_ip' || qr.id === 'lan') {
+          rules.push({ ip_cidr: ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '127.0.0.0/8', '169.254.0.0/16', 'fc00::/7', 'fe80::/10', '::1/128'], outbound });
+          rules.push({ ip_is_private: true, outbound });
+        } else if (qr.id === 'local_domains' || qr.id === 'local_sites') {
+          rules.push({ domain_suffix: ['.local', '.lan', '.home', '.internal', '.corp', '.localdomain', 'router.asus.com', 'tplinkwifi.net', 'keenetic.io', 'miwifi.com'], outbound });
+          rules.push({ domain_keyword: ['localhost'], outbound });
+        } else if (qr.id === 'bt') {
           rules.push({ protocol: ['bittorrent'], outbound });
           rules.push({ domain_keyword: ['torrent', 'tracker'], outbound });
         } else if (qr.id === 'ads') {
@@ -262,9 +276,9 @@ export class ConfigBuilder {
   // --- Xray Routing Rules Builder ---
 
   private static buildXrayRouteRules(settings: AppSettings): any[] {
-    const rules: any[] = [
-      { type: 'field', ip: ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '127.0.0.0/8'], outboundTag: 'direct' }
-    ];
+    const rules: any[] = [];
+    // Note: LAN rules are controlled by the 'local_ip' Quick Security Rule below.
+    // No hardcoded LAN rule here to avoid duplicate/conflicting outboundTags.
 
     // Apply Quick Security Rules
     if (settings.quickSecurityRules) {
@@ -272,7 +286,11 @@ export class ConfigBuilder {
         if (!qr.enabled) continue;
         const outboundTag = qr.action === 'BLOCKED' ? 'block' : (qr.action === 'DIRECT' ? 'direct' : 'proxy');
 
-        if (qr.id === 'bt') {
+        if (qr.id === 'local_ip' || qr.id === 'lan') {
+          rules.push({ type: 'field', ip: ['geoip:private', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '127.0.0.0/8', '169.254.0.0/16', 'fc00::/7', 'fe80::/10', '::1/128'], outboundTag });
+        } else if (qr.id === 'local_domains' || qr.id === 'local_sites') {
+          rules.push({ type: 'field', domain: ['domain:.local', 'domain:.lan', 'domain:.home', 'domain:.internal', 'domain:.corp', 'domain:.localdomain', 'domain:router.asus.com', 'domain:tplinkwifi.net', 'domain:keenetic.io', 'domain:miwifi.com', 'keyword:localhost'], outboundTag });
+        } else if (qr.id === 'bt') {
           rules.push({ type: 'field', protocol: ['bittorrent'], outboundTag });
           rules.push({ type: 'field', domain: ['keyword:torrent', 'keyword:tracker'], outboundTag });
         } else if (qr.id === 'ads') {
@@ -339,7 +357,7 @@ export class ConfigBuilder {
           server: server.address,
           server_port: server.port,
           uuid: server.uuid || '',
-          ...(isTls ? { flow: 'xtls-rprx-vision' } : {}),
+          ...(server.flow ? { flow: server.flow } : (server.security === 'reality' ? { flow: 'xtls-rprx-vision' } : {})),
           tls: isTls ? {
             enabled: true,
             server_name: server.sni || server.address,
@@ -388,7 +406,8 @@ export class ConfigBuilder {
           tag: 'proxy',
           server: server.address,
           server_port: server.port,
-          method: 'aes-256-gcm',
+          // Use server's configured method; fallback to aes-256-gcm if not set
+          method: server.security || 'aes-256-gcm',
           password: server.password
         };
 
@@ -433,16 +452,32 @@ export class ConfigBuilder {
           local_address: ['10.0.0.2/32']
         };
 
+      case 'HTTP': {
+        const u = (server.username || '').trim();
+        const p = (server.password || '').trim();
+        return {
+          type: 'http',
+          tag: 'proxy',
+          server: server.address,
+          server_port: server.port,
+          ...(u ? { username: u } : {}),
+          ...(p ? { password: p } : {})
+        };
+      }
+
       case 'SOCKS5':
-      default:
+      default: {
+        const u = (server.username || '').trim();
+        const p = (server.password || '').trim();
         return {
           type: 'socks',
           tag: 'proxy',
           server: server.address,
           server_port: server.port,
-          username: server.uuid || undefined,
-          password: server.password || undefined
+          ...(u ? { username: u } : {}),
+          ...(p ? { password: p } : {})
         };
+      }
     }
   }
 
@@ -499,14 +534,17 @@ export class ConfigBuilder {
               {
                 address: server.address,
                 port: server.port,
-                method: 'aes-256-gcm',
+                // Use server's configured method; fallback to aes-256-gcm if not set
+                method: server.security || 'aes-256-gcm',
                 password: server.password || ''
               }
             ]
           }
         };
 
-      case 'SOCKS5':
+      case 'SOCKS5': {
+        const u = (server.username || '').trim();
+        const p = (server.password || '').trim();
         return {
           tag: 'proxy',
           protocol: 'socks',
@@ -515,11 +553,14 @@ export class ConfigBuilder {
               {
                 address: server.address,
                 port: server.port,
-                users: server.uuid && server.password ? [{ user: server.uuid, pass: server.password }] : []
+                users: u && p
+                  ? [{ user: u, pass: p }]
+                  : []
               }
             ]
           }
         };
+      }
 
       case 'VLESS':
       default:

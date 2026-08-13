@@ -40,6 +40,7 @@ export interface VpnServer {
   protocol: ProtocolType;
   address: string;
   port: number;
+  username?: string;
   uuid?: string;
   password?: string;
   path?: string;
@@ -48,6 +49,7 @@ export interface VpnServer {
   pbk?: string; // reality public key
   sid?: string; // reality short id
   fp?: string; // fingerprint (chrome, safari, etc.)
+  flow?: string; // xtls-rprx-vision
   alpn?: string;
   obfs?: string;
   network?: string; // ws, grpc, tcp

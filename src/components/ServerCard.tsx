@@ -1,5 +1,5 @@
 import React from 'react';
-import { Star, Wifi, Smartphone, Check, Trash2, Pencil } from 'lucide-react';
+import { Star, Wifi, Smartphone, Check, Trash2, Pencil, Copy, Share2 } from 'lucide-react';
 import { VpnServer } from '../types/vpn';
 
 interface ServerCardProps {
@@ -9,6 +9,8 @@ interface ServerCardProps {
   onToggleFavorite: () => void;
   onDelete: () => void;
   onEdit: () => void;
+  onDuplicate: () => void;
+  onExportLink: () => void;
 }
 
 export const ServerCard: React.FC<ServerCardProps> = ({
@@ -18,6 +20,8 @@ export const ServerCard: React.FC<ServerCardProps> = ({
   onToggleFavorite,
   onDelete,
   onEdit,
+  onDuplicate,
+  onExportLink,
 }) => {
   const getCountryEmoji = (code?: string) => {
     switch (code) {
@@ -85,7 +89,7 @@ export const ServerCard: React.FC<ServerCardProps> = ({
         </div>
 
         {/* Right Actions & Ping */}
-        <div className="flex items-center space-x-2 ml-2 flex-shrink-0">
+        <div className="flex items-center space-x-1.5 ml-2 flex-shrink-0">
           <div className="flex items-center space-x-1 text-[11px] font-mono mr-1">
             <Wifi className={`w-3 h-3 ${getPingColor(server.pingMs)}`} />
             <span className={getPingColor(server.pingMs)}>
@@ -104,6 +108,28 @@ export const ServerCard: React.FC<ServerCardProps> = ({
             title="Добавить в избранное"
           >
             <Star className="w-3.5 h-3.5 fill-current" />
+          </button>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDuplicate();
+            }}
+            className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors opacity-70 group-hover:opacity-100"
+            title="Дублировать подключение"
+          >
+            <Copy className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onExportLink();
+            }}
+            className="p-1.5 rounded-lg text-slate-500 hover:text-teal-400 hover:bg-teal-500/10 transition-colors opacity-70 group-hover:opacity-100"
+            title="Скопировать ссылку подключения (Экспорт)"
+          >
+            <Share2 className="w-3.5 h-3.5" />
           </button>
 
           <button

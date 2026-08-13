@@ -4,12 +4,14 @@ import { VpnServer } from '../types/vpn';
 import { ProxyParser } from '../services/proxyParser';
 import { SentinelPairingService } from '../services/pairingService';
 import { TauriBridge } from '../services/tauriBridge';
+import { useI18n } from '../i18n/i18nContext';
 
 interface HotspotViewProps {
   onAddHotspotServer: (server: VpnServer) => void;
 }
 
 export const HotspotView: React.FC<HotspotViewProps> = ({ onAddHotspotServer }) => {
+  const { t } = useI18n();
   const [gatewayIp, setGatewayIp] = useState('');
   const [isPairing, setIsPairing] = useState(false);
   const [pairingStatus, setPairingStatus] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
@@ -35,72 +37,86 @@ export const HotspotView: React.FC<HotspotViewProps> = ({ onAddHotspotServer }) 
       if (!text || text.trim().length === 0) {
         setImportStatus({
           type: 'error',
-          message: 'Буфер обмена пуст. Скопируйте SOCKS5 или VLESS ссылку в приложении x-prox.',
+          message: t('hotspot_status_clipboard_empty'),
         });
         return;
       }
 
-      const trimmed = text.trim();
-      setClipboardUri(trimmed);
+      setClipboardUri(text.trim());
+      const parsedServer = ProxyParser.parseLink(text.trim());
 
-      const parsedServers = ProxyParser.parseSubscription(trimmed);
-      if (parsedServers && parsedServers.length > 0) {
-        parsedServers.forEach(srv => onAddHotspotServer(srv));
+      if (parsedServer) {
+        onAddHotspotServer(parsedServer);
         setImportStatus({
           type: 'success',
-          message: `Успешно импортировано ${parsedServers.length} профилей: ${parsedServers[0].name}`,
+          message: t('hotspot_status_imported_success', { name: parsedServer.name, protocol: parsedServer.protocol }),
         });
       } else {
         setImportStatus({
           type: 'error',
-          message: 'Текст в буфере не является валидной SOCKS5/VLESS/HY2 ссылкой.',
+          message: t('hotspot_status_invalid_format'),
         });
       }
     } catch (err) {
       setImportStatus({
         type: 'error',
-        message: 'Не удалось прочитать буфер обмена. Разрешите доступ к буферу в настройках.',
+        message: t('hotspot_status_clipboard_error'),
       });
     }
   };
 
   const handleStartPairing = async () => {
-    const pin = Math.floor(1000 + Math.random() * 9000).toString();
-    setIsPairing(true);
-    setActivePin(pin);
-    setPairingStatus({
-      type: 'info',
-      message: `Код ${pin} отправлен. Сверьте код на экране смартфона и нажмите «Разрешить»!`,
-    });
+    if (!gatewayIp.trim()) {
+      setPairingStatus({ type: 'error', message: t('hotspot_status_enter_ip') });
+      return;
+    }
 
-    const result = await SentinelPairingService.requestPairing(gatewayIp, pin);
+    setIsPairing(true);
+    setPairingStatus({ type: 'info', message: t('hotspot_status_generating_pin') });
+
+    // Generate real 4-digit PIN code
+    const generatedPin = Math.floor(1000 + Math.random() * 9000).toString();
+    setActivePin(generatedPin);
+
+    setPairingStatus({ type: 'info', message: t('hotspot_status_pin_generated', { pin: generatedPin, ip: gatewayIp }) });
+
+    // Send HTTP POST request to Android device
+    const result = await SentinelPairingService.requestPairing(gatewayIp.trim(), generatedPin);
     setIsPairing(false);
 
     if (result.success) {
-      setActivePin(result.pin || pin);
       setPairingStatus({
         type: 'success',
-        message: `Сопряжение подтверждено! Добавлен сервер: ${result.ip}:${result.port}`,
+        message: result.message || t('hotspot_status_pairing_success'),
       });
-
-      const hotspotServer: VpnServer = {
-        id: `hotspot_${result.ip}_${result.port}_${Date.now()}`,
-        name: `📱 Sentinel Hotspot (${result.ip})`,
-        protocol: (result.proxyType as any) || 'SOCKS5',
-        address: result.ip || gatewayIp,
-        port: result.port || 10808,
-        uuid: result.username,
-        password: result.password,
-        isHotspot: true,
-        countryCode: 'LAN',
-        pingMs: 8,
-      };
-
-      onAddHotspotServer(hotspotServer);
+      if (result.server) {
+        onAddHotspotServer(result.server);
+      }
     } else {
       setPairingStatus({
         type: 'error',
-        message: result.message || 'Ошибка сопряжения со смартфоном.',
+        message: result.message || t('hotspot_status_pairing_error'),
+      });
+    }
+  };
+
+  const handleDirectFetchConfig = async () => {
+    setIsPairing(true);
+    setPairingStatus({ type: 'info', message: 'Запрос активной конфигурации с телефона...' });
+
+    const result = await SentinelPairingService.fetchLiveConfig(gatewayIp.trim());
+    setIsPairing(false);
+
+    if (result.success && result.server) {
+      setPairingStatus({
+        type: 'success',
+        message: result.message || 'Конфигурация успешно получена со смартфона!',
+      });
+      onAddHotspotServer(result.server);
+    } else {
+      setPairingStatus({
+        type: 'error',
+        message: result.message || 'Не удалось получить активную конфигурацию.',
       });
     }
   };
@@ -116,14 +132,14 @@ export const HotspotView: React.FC<HotspotViewProps> = ({ onAddHotspotServer }) 
           <div>
             <div className="flex items-center space-x-2.5">
               <h1 className="text-base font-extrabold text-slate-100 font-sans tracking-wide">
-                Sentinel Hotspot (Связывание с Android)
+                {t('hotspot_title')}
               </h1>
               <span className="px-2.5 py-0.5 text-[9px] font-mono uppercase tracking-widest font-bold rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 whitespace-nowrap">
                 LAN Pairing
               </span>
             </div>
             <p className="text-xs text-slate-400 font-mono mt-1">
-              Безопасная передача настроек прокси и туннелирование трафика ПК через смартфон
+              {t('hotspot_subtitle')}
             </p>
           </div>
         </div>
@@ -145,22 +161,22 @@ export const HotspotView: React.FC<HotspotViewProps> = ({ onAddHotspotServer }) 
           <div className="space-y-3">
             <div className="flex items-center space-x-2 text-xs font-bold text-emerald-400 font-mono">
               <KeyRound className="w-4 h-4" />
-              <span>ИНТЕРАКТИВНОЕ СОПРЯЖЕНИЕ С ПОДТВЕРЖДЕНИЕМ</span>
+              <span>{t('hotspot_step1_title')}</span>
             </div>
 
             <p className="text-xs text-slate-300 leading-relaxed">
-              Запустите VPN на смартфоне. При нажатии кнопки на ПК сгенерируется 4-значный PIN-код и отправится запрос на телефон.
+              {t('hotspot_step1_desc')}
             </p>
 
             <div className="space-y-2">
               <label className="text-[10px] text-slate-400 font-mono block">
-                IP-адрес телефона (Точка доступа или Wi-Fi IP):
+                {t('hotspot_phone_ip')}
               </label>
               <input
                 type="text"
                 value={gatewayIp}
                 onChange={(e) => setGatewayIp(e.target.value)}
-                placeholder="Автоматически определяется из сетевого шлюза"
+                placeholder="192.168.1.1"
                 className="w-full px-3 py-2 text-xs font-mono bg-[#060812] border border-white/10 rounded-xl text-slate-100 focus:outline-none focus:border-emerald-500/50"
               />
             </div>
@@ -171,9 +187,8 @@ export const HotspotView: React.FC<HotspotViewProps> = ({ onAddHotspotServer }) 
                 <div className="space-y-0.5">
                   <div className="flex items-center space-x-1.5">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                    <span className="text-xs font-bold text-emerald-200">Код подтверждения на ПК:</span>
+                    <span className="text-xs font-bold text-emerald-200">{t('hotspot_pin_code')}</span>
                   </div>
-                  <p className="text-[10px] text-slate-400">Сверьте код с всплывающим окном на телефоне</p>
                 </div>
                 <div className="px-4 py-1.5 bg-black/70 border border-emerald-400/50 rounded-xl text-xl font-mono font-black text-emerald-300 tracking-[0.25em] shadow-glow-emerald">
                   {activePin}
@@ -181,14 +196,26 @@ export const HotspotView: React.FC<HotspotViewProps> = ({ onAddHotspotServer }) 
               </div>
             )}
 
-            <button
-              onClick={handleStartPairing}
-              disabled={isPairing}
-              className="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-semibold shadow-glow-emerald transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-            >
-              {isPairing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
-              <span>{isPairing ? 'Ожидание подтверждения на смартфоне...' : 'Отправить запрос на сопряжение'}</span>
-            </button>
+            <div className="flex flex-col sm:flex-row gap-2 pt-1">
+              <button
+                onClick={handleStartPairing}
+                disabled={isPairing}
+                className="flex-1 flex items-center justify-center space-x-2 py-2.5 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-semibold shadow-glow-emerald transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+              >
+                {isPairing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
+                <span>{t('hotspot_request_btn')}</span>
+              </button>
+
+              <button
+                onClick={handleDirectFetchConfig}
+                disabled={isPairing}
+                className="flex items-center justify-center space-x-1.5 py-2.5 px-3 bg-white/5 hover:bg-white/10 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-mono transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                title="Получить готовый конфиг со смартфона напрямую"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isPairing ? 'animate-spin' : ''}`} />
+                <span>Запросить конфиг</span>
+              </button>
+            </div>
           </div>
 
           {pairingStatus && (
@@ -211,34 +238,34 @@ export const HotspotView: React.FC<HotspotViewProps> = ({ onAddHotspotServer }) 
           <div className="space-y-3">
             <div className="flex items-center space-x-2 text-xs font-bold text-purple-400 font-mono">
               <ClipboardPaste className="w-4 h-4" />
-              <span>ИМПОРТ ССЫЛКИ ИЗ БУФЕРА ОБМЕНА</span>
+              <span>{t('hotspot_paste_card_title')}</span>
             </div>
 
             <p className="text-xs text-slate-300 leading-relaxed">
-              Скопируйте SOCKS5 или VLESS ссылку конфигурации в мобильном приложении и нажмите кнопку ниже для мгновенного импорта.
+              {t('hotspot_paste_card_desc')}
             </p>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <label className="text-[10px] text-slate-400 font-mono block">
-                Содержимое буфера:
+                {t('hotspot_clipboard_content')}
               </label>
-              <div className="p-3 rounded-xl bg-[#060812] border border-white/10 font-mono text-[11px] text-slate-300 break-all min-h-[50px] flex items-center">
+              <div className="p-3 bg-[#060812] border border-white/10 rounded-xl font-mono text-xs text-slate-300 break-all min-h-[70px] max-h-[100px] overflow-y-auto">
                 {clipboardUri ? (
-                  <span className="text-emerald-300">{clipboardUri}</span>
+                  <span className="text-purple-300 font-bold">{clipboardUri}</span>
                 ) : (
-                  <span className="text-slate-500 italic">Нажмите «Вставить из буфера», чтобы прочитать скопированную ссылку...</span>
+                  <span className="text-slate-500 italic">
+                    {t('hotspot_clipboard_empty_hint')}
+                  </span>
                 )}
               </div>
             </div>
-          </div>
 
-          <div className="space-y-2.5">
             <button
               onClick={handlePasteFromClipboard}
-              className="w-full flex items-center justify-center space-x-2 py-2.5 px-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-semibold shadow-glow-violet transition-all active:scale-95 cursor-pointer"
+              className="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-semibold shadow-glow-violet transition-all active:scale-95 cursor-pointer"
             >
               <ClipboardPaste className="w-4 h-4" />
-              <span>Вставить из буфера обмена</span>
+              <span>{t('hotspot_paste_btn')}</span>
             </button>
 
             {importStatus && (

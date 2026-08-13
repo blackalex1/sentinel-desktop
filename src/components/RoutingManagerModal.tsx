@@ -17,6 +17,8 @@ export const RoutingManagerModal: React.FC<RoutingManagerModalProps> = ({
 }) => {
   const [quickRules, setQuickRules] = useState<QuickSecurityRule[]>(
     settings.quickSecurityRules || [
+      { id: 'local_ip', name: 'Локальные IP адреса (LAN)', description: 'Прямой доступ к домашней сети (192.168.x, 10.x, 172.16.x, 127.0.0.1, geoip:private)', enabled: true, action: 'DIRECT' },
+      { id: 'local_domains', name: 'Локальные сайты и домены', description: 'Роутеры, .local, .lan, .home, .internal, веб-интерфейсы NAS/IoT', enabled: true, action: 'DIRECT' },
       { id: 'bt', name: 'BitTorrent трафик', description: 'Торрент-трафик и P2P трекеры', enabled: true, action: 'BLOCKED' },
       { id: 'ads', name: 'Реклама и трекеры', description: 'AdBlock geosite категории', enabled: false, action: 'BLOCKED' },
       { id: 'cn', name: 'Сайты Китая (CN)', description: 'Все IP и домены Китая', enabled: false, action: 'BLOCKED' },
@@ -28,10 +30,11 @@ export const RoutingManagerModal: React.FC<RoutingManagerModalProps> = ({
 
   const [customRules, setCustomRules] = useState<CustomRouteRule[]>(
     settings.customRouteRules || [
+      { id: 'rule_local_ip', name: 'Local Private IPs', domains: [], ips: ['geoip:private', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '127.0.0.0/8'], action: 'DIRECT', enabled: true },
+      { id: 'rule_local_domains', name: 'Local Domains & Routers', domains: ['domain:.local', 'domain:.lan', 'domain:.home', 'domain:.internal', 'domain:router.asus.com', 'domain:tplinkwifi.net', 'domain:keenetic.io', 'domain:miwifi.com'], ips: [], action: 'DIRECT', enabled: true },
       { id: 'rule_1', name: 'Block BitTorrent', domains: ['torrent', 'tracker'], ips: [], action: 'BLOCKED', enabled: true },
       { id: 'rule_2', name: 'Сервисы определения IP', domains: ['2ip.ru', 'ipify.org', 'ifconfig.me'], ips: [], action: 'DIRECT', enabled: true },
       { id: 'rule_3', name: 'RU Sites', domains: ['geosite:ru'], ips: ['geoip:ru'], action: 'DIRECT', enabled: true },
-      { id: 'rule_4', name: 'Local Private IPs', domains: [], ips: ['geoip:private'], action: 'DIRECT', enabled: true },
     ]
   );
 
@@ -188,7 +191,7 @@ export const RoutingManagerModal: React.FC<RoutingManagerModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 animate-fadeIn">
       {/* Outer Double-Bezel Shell */}
       <div className="relative w-full max-w-4xl double-bezel-shell bg-[#080914] border border-white/10 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
         <div className="double-bezel-core p-5 flex flex-col flex-1 overflow-hidden">
@@ -431,7 +434,7 @@ export const RoutingManagerModal: React.FC<RoutingManagerModalProps> = ({
 
       {/* Add / Edit Rule Modal Dialog */}
       {isRuleFormOpen && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/90 animate-fadeIn">
           <div className="w-full max-w-md p-5 rounded-2xl bg-[#0e1324] border border-white/10 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-white/10">
               <h4 className="text-xs font-bold text-slate-100 font-sans">

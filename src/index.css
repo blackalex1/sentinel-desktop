@@ -35,7 +35,9 @@
   border: 1px solid rgba(255, 255, 255, 0.07);
   padding: 6px;
   border-radius: 24px;
-  transition: all 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+  /* GPU: только compositor-safe свойства */
+  transition: border-color 0.4s cubic-bezier(0.32, 0.72, 0, 1),
+              background-color 0.4s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .double-bezel-shell:hover {
@@ -49,53 +51,63 @@
   box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.12);
 }
 
-/* Ethereal Glow Background Grid */
+/* Ethereal Glow Background Grid
+   GPU: статичные radial-gradient не пересоздают compositing-слой при скролле
+   background-attachment: fixed убран — он создаёт отдельный GPU-слой на всё время жизни страницы */
 .bg-glow-mesh {
-  background-image: 
+  background-image:
     radial-gradient(circle at 50% -20%, rgba(139, 92, 246, 0.15), transparent 45%),
     radial-gradient(circle at 85% 85%, rgba(6, 182, 212, 0.12), transparent 40%),
     radial-gradient(circle at 15% 75%, rgba(16, 185, 129, 0.1), transparent 35%);
 }
 
-/* Cosmic Night Ocean Glassmorphism Theme (Inspired by User Image) */
+/* Cosmic Night Ocean Theme
+   GPU: background-attachment: fixed УДАЛЁН — вызывает отдельный compositing-слой
+   ::before псевдоэлемент встроен в сам фон для минимизации слоёв */
 .bg-glow-cosmic {
-  background: radial-gradient(circle at 50% 10%, #150938 0%, #08061a 50%, #03040f 100%);
-  background-attachment: fixed;
-}
-
-.bg-glow-cosmic::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: 
+  background:
     radial-gradient(circle at 30% 20%, rgba(168, 85, 247, 0.2), transparent 40%),
     radial-gradient(circle at 70% 60%, rgba(59, 130, 246, 0.15), transparent 50%),
-    radial-gradient(circle at 50% 90%, rgba(14, 165, 233, 0.12), transparent 40%);
-  pointer-events: none;
+    radial-gradient(circle at 50% 90%, rgba(14, 165, 233, 0.12), transparent 40%),
+    radial-gradient(circle at 50% 10%, #150938 0%, #08061a 50%, #03040f 100%);
+  /* GPU: contain:paint ограничивает слой рендером внутри контейнера */
+  contain: paint;
 }
 
+/* Glass Panel
+   GPU: backdrop-filter:blur создаёт отдельный compositing-слой с размытием всего
+   контента позади. Заменён на полупрозрачный фон без blur — визуально эквивалентно
+   для тёмного UI (за панелями нет видимого контента) */
 .cosmic-glass-panel {
-  background: rgba(18, 12, 42, 0.45);
-  backdrop-filter: blur(24px);
+  background: rgba(14, 10, 32, 0.92);
   border: 1px solid rgba(168, 85, 247, 0.18);
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.15);
+  /* GPU: translateZ(0) убран — принудительная GPU-promotion без причины */
 }
 
-/* Kinetic Spring Physics */
+/* Kinetic Spring Physics — только compositor-safe свойства */
 .spring-transition {
-  transition: all 0.5s cubic-bezier(0.32, 0.72, 0, 1);
+  transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1),
+              opacity 0.5s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-/* Glowing Neon Rings */
+/* Glowing Neon Rings
+   GPU: box-shadow не создаёт отдельный слой, но большие blur-радиусы
+   затратны при перерисовке. Оставляем только необходимые тени. */
 .glow-ring-active {
-  box-shadow: 
-    0 0 50px rgba(16, 185, 129, 0.4),
-    0 0 25px rgba(6, 182, 212, 0.3),
-    inset 0 0 20px rgba(16, 185, 129, 0.2);
+  box-shadow:
+    0 0 40px rgba(16, 185, 129, 0.35),
+    0 0 18px rgba(6, 182, 212, 0.25);
 }
 
 .glow-ring-idle {
-  box-shadow: 
-    0 0 30px rgba(255, 255, 255, 0.03),
-    inset 0 0 15px rgba(255, 255, 255, 0.02);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.03);
+}
+
+/* GPU: Modal overlay — без backdrop-blur, достаточно тёмного bg-black/90
+   (за модальными окнами нет интерактивного контента, размытие избыточно) */
+.modal-overlay {
+  background: rgba(0, 0, 0, 0.88);
+  /* GPU: contain:strict ограничивает layout+paint+size до контейнера */
+  contain: strict;
 }

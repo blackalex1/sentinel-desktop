@@ -9,12 +9,7 @@ pub fn get_app_dir() -> PathBuf {
     std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
 }
 
-/// Return path for temp configuration JSON files next to x-pc.exe
-pub fn get_temp_config_path(core_type: &str) -> PathBuf {
-    let mut dir = get_app_dir();
-    dir.push(format!("config_{}.json", core_type));
-    dir
-}
+
 
 /// Resolution for core binaries path right next to x-pc.exe: <x-pc.exe directory>/binaries/<binary_name>
 pub fn get_binary_path(core_type: &str) -> PathBuf {

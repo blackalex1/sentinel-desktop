@@ -3,7 +3,7 @@ import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 
 export interface ToastMessage {
   id: string;
-  type: 'success' | 'error' | 'info';
+  type: 'success' | 'error' | 'info' | 'warning';
   title: string;
   message?: string;
 }
@@ -41,6 +41,11 @@ const ToastItem: React.FC<{ toast: ToastMessage; onDismiss: (id: string) => void
           bg: 'bg-[#0a1612]/95 border-emerald-500/40 text-emerald-200 shadow-[0_4px_20px_rgba(16,185,129,0.25)]',
           icon: <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />,
         };
+      case 'warning':
+        return {
+          bg: 'bg-[#1d1a0f]/95 border-amber-500/40 text-amber-200 shadow-[0_4px_20px_rgba(245,158,11,0.25)]',
+          icon: <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0" />,
+        };
       case 'error':
         return {
           bg: 'bg-[#180a10]/95 border-rose-500/40 text-rose-200 shadow-[0_4px_20px_rgba(244,63,94,0.25)]',
@@ -59,7 +64,7 @@ const ToastItem: React.FC<{ toast: ToastMessage; onDismiss: (id: string) => void
 
   return (
     <div
-      className={`pointer-events-auto flex items-start justify-between p-3.5 rounded-2xl border backdrop-blur-xl transition-all duration-300 animate-slideInRight ${style.bg}`}
+      className={`pointer-events-auto flex items-start justify-between p-3.5 rounded-2xl border transition-all duration-300 animate-slideInRight ${style.bg}`}
     >
       <div className="flex items-start space-x-3 pr-2">
         {style.icon}

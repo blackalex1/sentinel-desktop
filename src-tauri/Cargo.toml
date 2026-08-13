@@ -6,15 +6,15 @@ authors = ["Sentinel Dev"]
 edition = "2021"
 
 [build-dependencies]
-tauri-build = { version = "2.0.0", features = [] }
+tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2.0.0", features = ["tray-icon"] }
+tauri = { version = "2", features = ["tray-icon"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1", features = ["full"] }
 winreg = "0.55"
-windows-sys = { version = "0.52", features = ["Win32_UI_Shell", "Win32_Foundation"] }
+windows-sys = { version = "0.59", features = ["Win32_UI_Shell", "Win32_Foundation", "Win32_Security", "Win32_Security_Cryptography", "Win32_System_Threading"] }
 reqwest = { version = "0.12", features = ["json", "stream", "default-tls"] }
 zip = "2.2"
 futures-util = "0.3"

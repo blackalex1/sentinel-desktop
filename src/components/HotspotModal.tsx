@@ -75,7 +75,7 @@ export const HotspotModal: React.FC<HotspotModalProps> = ({
 
     if (result.success) {
       setPairPin(result.pin || pin);
-      setPairStatus(`Сопряжение успешно подтверждено на смартфоне!`);
+      setPairStatus(`Сопряжение успешно подтверждено! Прокси добавлен в список.`);
 
       if (result.ip) setIp(result.ip);
       if (result.port) setPort(result.port.toString());
@@ -83,6 +83,10 @@ export const HotspotModal: React.FC<HotspotModalProps> = ({
       if (result.password) setPassword(result.password);
 
       setAutoDetectedMessage(`Данные получены: ${result.ip}:${result.port} (Логин: ${result.username || 'Без логина'})`);
+
+      if (result.server) {
+        onAddHotspotServer(result.server);
+      }
     } else {
       setPairPin(null);
       setPairStatus(result.message || 'Запрос отклонен или смартфон недоступен в сети.');
@@ -115,7 +119,7 @@ export const HotspotModal: React.FC<HotspotModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn select-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 animate-fadeIn select-none">
       <div className="relative w-full max-w-lg double-bezel-shell bg-[#0a0a12] border border-white/10 shadow-2xl overflow-hidden">
         <div className="double-bezel-core p-5">
           {/* Header */}

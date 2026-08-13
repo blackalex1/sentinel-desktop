@@ -73,7 +73,7 @@ export const CoreManagerModal: React.FC<CoreManagerModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn select-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 animate-fadeIn select-none">
       <div className="relative w-full max-w-xl double-bezel-shell bg-[#0a0a12] border border-white/10 shadow-2xl overflow-hidden">
         <div className="double-bezel-core p-4">
           {/* Header */}

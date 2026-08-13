@@ -6,6 +6,7 @@ pnpm-debug.log*
 dist/
 dist-ssr/
 src-tauri/target/
+binaries/
 src-tauri/binaries/
 *.zip
 .agents/
