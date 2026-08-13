@@ -9,6 +9,8 @@ src-tauri/target/
 binaries/
 src-tauri/binaries/
 *.zip
+*.exe
+*.dll
 .agents/
 .gemini/
 .env
