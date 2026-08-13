@@ -127,10 +127,17 @@ export class GitHubCoreService {
 
   private static getFallbackReleases(coreType: Exclude<CoreType, 'auto'>): GitHubRelease[] {
     const repo = this.REPOS[coreType].repo;
+    const stableTag = coreType === 'xray' ? 'v26.3.27' : coreType === 'singbox' ? 'v1.13.18' : 'v2.12.1';
+    const stableUrl = coreType === 'singbox'
+      ? 'https://github.com/SagerNet/sing-box/releases/download/v1.13.18/sing-box-1.13.18-windows-amd64.zip'
+      : coreType === 'xray'
+      ? 'https://github.com/XTLS/Xray-core/releases/download/v26.3.27/Xray-windows-64.zip'
+      : 'https://github.com/apernet/hysteria/releases/download/app%2Fv2.12.1/hysteria-windows-amd64.exe';
+
     return [
       {
         id: 101,
-        tag_name: coreType === 'xray' ? 'v1.8.24' : coreType === 'singbox' ? 'v1.10.1' : 'v2.5.2',
+        tag_name: stableTag,
         name: `${this.REPOS[coreType].name} Official Release`,
         prerelease: false,
         draft: false,
@@ -140,27 +147,9 @@ export class GitHubCoreService {
         assets: [
           {
             name: `${coreType}-windows-amd64.zip`,
-            browser_download_url: `https://github.com/${repo}/releases/download/latest/windows-amd64.zip`,
-            size: 15420000,
+            browser_download_url: stableUrl,
+            size: 21000000,
             download_count: 4200,
-          }
-        ]
-      },
-      {
-        id: 102,
-        tag_name: coreType === 'xray' ? 'v1.9.0-rc.1' : coreType === 'singbox' ? 'v1.11.0-beta.1' : 'v2.6.0-rc.1',
-        name: `${this.REPOS[coreType].name} Pre-Release (Nightly Build)`,
-        prerelease: true,
-        draft: false,
-        published_at: new Date().toISOString(),
-        body: 'Nightly build with experimental features and performance optimizations.',
-        html_url: `https://github.com/${repo}/releases`,
-        assets: [
-          {
-            name: `${coreType}-windows-amd64-beta.zip`,
-            browser_download_url: `https://github.com/${repo}/releases/download/beta/windows-amd64.zip`,
-            size: 16100000,
-            download_count: 850,
           }
         ]
       }

@@ -273,13 +273,14 @@ export const CoreManagerView: React.FC<CoreManagerViewProps> = ({
     const verNum = v.replace(/^v/i, '');
 
     let targetUrl = verItem?.downloadUrl || '';
-    if (!targetUrl) {
+    if (!targetUrl || targetUrl.includes('/download/latest/') || targetUrl.includes('/download/beta/')) {
+      const tagWithV = v.startsWith('v') ? v : `v${v}`;
       if (coreType === 'singbox') {
-        targetUrl = `https://github.com/SagerNet/sing-box/releases/download/${v}/sing-box-${verNum}-windows-amd64.zip`;
+        targetUrl = `https://github.com/SagerNet/sing-box/releases/download/${tagWithV}/sing-box-${verNum}-windows-amd64.zip`;
       } else if (coreType === 'xray') {
-        targetUrl = `https://github.com/XTLS/Xray-core/releases/download/${v}/Xray-windows-64.zip`;
+        targetUrl = `https://github.com/XTLS/Xray-core/releases/download/${tagWithV}/Xray-windows-64.zip`;
       } else if (coreType === 'hysteria') {
-        targetUrl = `https://github.com/apernet/hysteria/releases/download/app%2F${v}/hysteria-windows-amd64.exe`;
+        targetUrl = `https://github.com/apernet/hysteria/releases/download/app%2F${tagWithV}/hysteria-windows-amd64.exe`;
       } else if ((coreType as string) === 'wintun') {
         targetUrl = 'https://fastly.jsdelivr.net/gh/WireGuard/wintun@master/builds/wintun-0.14.1.zip';
       }

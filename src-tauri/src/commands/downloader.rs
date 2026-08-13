@@ -37,12 +37,17 @@ fn build_client() -> Client {
 async fn download_file_direct(client: &Client, url: &str, destination: &PathBuf) -> Result<bool, String> {
     println!("[Pure-Rust Downloader] Downloading requested URL: {}", url);
     
-    let mut candidate_urls = vec![url.to_string()];
+    let mut candidate_urls = Vec::new();
     if url.contains("github.com") {
         candidate_urls.push(format!("https://ghfast.top/{}", url));
         candidate_urls.push(format!("https://ghproxy.net/{}", url));
+        candidate_urls.push(format!("https://gh-proxy.com/{}", url));
+        candidate_urls.push(url.to_string());
     } else if url.contains("wintun") {
         candidate_urls.push("https://fastly.jsdelivr.net/gh/WireGuard/wintun@master/builds/wintun-0.14.1.zip".to_string());
+        candidate_urls.push(url.to_string());
+    } else {
+        candidate_urls.push(url.to_string());
     }
 
     for cand_url in candidate_urls {
@@ -51,6 +56,7 @@ async fn download_file_direct(client: &Client, url: &str, destination: &PathBuf)
             if resp.status().is_success() {
                 if let Ok(bytes) = resp.bytes().await {
                     if bytes.len() > 1000 {
+                        let _ = fs::remove_file(destination);
                         let mut file = File::create(destination).map_err(|e| format!("Failed creating target file {:?}: {}", destination, e))?;
                         file.write_all(&bytes).map_err(|e| format!("Failed writing file content {:?}: {}", destination, e))?;
                         println!("[Pure-Rust Downloader] Successfully downloaded {} bytes via reqwest from {}", bytes.len(), cand_url);
@@ -68,9 +74,9 @@ async fn download_file_direct(client: &Client, url: &str, destination: &PathBuf)
            .arg("-A")
            .arg("Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
            .arg("--connect-timeout")
-           .arg("8")
+           .arg("5")
            .arg("--max-time")
-           .arg("45")
+           .arg("30")
            .arg("-o")
            .arg(destination)
            .arg(&cand_url);
@@ -107,6 +113,7 @@ fn extract_file_from_zip(zip_path: &PathBuf, target_filename: &str, dest_path: &
         };
 
         if is_match {
+            let _ = fs::remove_file(dest_path);
             let mut out_file = File::create(dest_path).map_err(|e| format!("Failed creating extracted file: {}", e))?;
             let mut buffer = Vec::new();
             zip_file.read_to_end(&mut buffer).map_err(|e| format!("Failed reading zip content: {}", e))?;
@@ -124,6 +131,16 @@ pub async fn download_core_binary(core_type: String, download_url: String) -> Re
     let core = core_type.to_lowercase();
     let binaries_dir = get_app_dir().join("binaries");
     fs::create_dir_all(&binaries_dir).map_err(|e| format!("Failed creating binaries dir: {}", e))?;
+
+    // Stop active core process to release file lock on binary
+    crate::process_manager::runner::VpnProcessRunner::stop_core();
+    #[cfg(target_os = "windows")]
+    {
+        let mut kill_cmd = std::process::Command::new("taskkill");
+        kill_cmd.args(&["/F", "/IM", "sing-box.exe", "/IM", "xray.exe", "/IM", "hysteria.exe"]);
+        kill_cmd.creation_flags(0x08000000);
+        let _ = kill_cmd.output();
+    }
 
     let client = build_client();
     let target_url = download_url.trim().to_string();
@@ -154,6 +171,7 @@ pub async fn download_core_binary(core_type: String, download_url: String) -> Re
         extract_file_from_zip(&temp_download_path, target_name, &target_bin_path)?;
         let _ = fs::remove_file(&temp_download_path);
     } else {
+        let _ = fs::remove_file(&target_bin_path);
         fs::rename(&temp_download_path, &target_bin_path)
             .or_else(|_| fs::copy(&temp_download_path, &target_bin_path).map(|_| ()))
             .map_err(|e| format!("Failed installing binary: {}", e))?;
