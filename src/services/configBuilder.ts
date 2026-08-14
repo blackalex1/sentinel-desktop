@@ -213,6 +213,9 @@ export class ConfigBuilder {
 
   private static buildSingboxRouteRules(settings: AppSettings): any[] {
     const rules: any[] = [];
+
+    // Automatically enable TLS/HTTP SNI Sniffing for modern Sing-box
+    rules.push({ action: 'sniff' });
     // Note: LAN rules are controlled by the 'local_ip' Quick Security Rule below.
     // No hardcoded LAN rule here to avoid duplicate/conflicting outbounds.
 
