@@ -40,24 +40,29 @@ func (m *CoreDLLManager) Init(baseDir string) error {
 	candidates := []string{
 		filepath.Join(baseDir, "binaries", "sentinel-core.dll"),
 		filepath.Join(baseDir, "sentinel-core.dll"),
+		filepath.Join(baseDir, "..", "..", "binaries", "sentinel-core.dll"),
+		filepath.Join(baseDir, "..", "binaries", "sentinel-core.dll"),
 		filepath.Join("binaries", "sentinel-core.dll"),
 		"sentinel-core.dll",
+		`c:\Users\black\PycharmProjects\sentinel_core\sentinel-core.dll`,
 	}
 
-	var foundPath string
+	var lastErr error
 	for _, p := range candidates {
-		if fi, err := os.Stat(p); err == nil && fi.Size() > 0 {
-			foundPath = p
-			break
+		if fi, err := os.Stat(p); err == nil && fi.Size() > 1000000 {
+			if err := m.loadDLLLocked(p); err == nil {
+				return nil
+			} else {
+				lastErr = err
+			}
 		}
 	}
 
-	if foundPath == "" {
-		m.isReady = false
-		return fmt.Errorf("sentinel-core.dll not found in candidate paths")
+	m.isReady = false
+	if lastErr != nil {
+		return fmt.Errorf("failed to load sentinel-core.dll: %w", lastErr)
 	}
-
-	return m.loadDLLLocked(foundPath)
+	return fmt.Errorf("sentinel-core.dll not found in candidate paths")
 }
 
 func (m *CoreDLLManager) loadDLLLocked(path string) error {
