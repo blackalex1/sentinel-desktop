@@ -1,0 +1,114 @@
+<section id="view-hotspot" class="tab-view">
+        <div class="view-header">
+          <div class="view-title-group">
+            <h2 class="view-title" data-i18n="hotspot_title">Sentinel Hotspot</h2>
+            <p class="view-desc" data-i18n="hotspot_desc">Автосопряжение с мобильной точкой доступа Sentinel Phone и раздача VPN на устройства в сети</p>
+          </div>
+        </div>
+
+        <div class="hotspot-layout">
+          <!-- Hotspot Client Card: Connect to Sentinel Phone -->
+          <div class="hotspot-card hotspot-client-card">
+            <div class="hotspot-card-header">
+              <div class="hotspot-title-group">
+                <span class="hotspot-title">📱 Клиент: Подключение к Sentinel Phone</span>
+                <span class="hotspot-badge">Hotspot Pairing</span>
+              </div>
+            </div>
+            <p class="hotspot-card-desc">Автоматический поиск сервера сопряжения на телефоне, получение логина/пароля и создание узла.</p>
+
+            <div class="form-group">
+              <label>Сетевой интерфейс / Шлюз точки доступа:</label>
+              <select id="hotspot-adapter-select" class="hotspot-adapter-select mb-2">
+                <option value="10.60.133.124">📶 Беспроводная сеть — Шлюз: 10.60.133.124 (IP: 10.60.133.101)</option>
+                <option value="192.168.1.1">🌐 Ethernet — Шлюз: 192.168.1.1 (IP: 192.168.1.92)</option>
+                <option value="">✏️ Указать свой IP-адрес вручную...</option>
+              </select>
+              <div class="input-with-action">
+                <input type="text" id="hotspot-target-ip" class="font-mono" value="10.60.133.124" placeholder="Шлюз определяется автоматически...">
+                <button id="btn-detect-gateway" class="btn btn-secondary btn-sm" title="Обновить список адаптеров">🔄 Обновить</button>
+              </div>
+            </div>
+
+            <button id="btn-probe-hotspot" class="btn btn-primary w-full mt-2">
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <span>🔍 Найти телефон (Автосопряжение)</span>
+            </button>
+
+            <!-- Phone Discovery & Pairing Card -->
+            <div id="hotspot-phone-status-box" class="hotspot-phone-box hidden">
+              <div class="hotspot-status-header">
+                <span id="hotspot-probe-state-dot" class="status-dot"></span>
+                <span id="hotspot-probe-state-text" class="status-text">Телефон обнаружен</span>
+              </div>
+              <div class="hotspot-info-grid">
+                <div class="hotspot-info-item">
+                  <span class="info-label">Шлюз:</span>
+                  <span id="hotspot-found-ip" class="info-val font-mono">—</span>
+                </div>
+                <div class="hotspot-info-item">
+                  <span class="info-label">Порт сопряжения:</span>
+                  <span id="hotspot-found-port" class="info-val font-mono">—</span>
+                </div>
+                <div class="hotspot-info-item">
+                  <span class="info-label">Прокси-протокол:</span>
+                  <span id="hotspot-found-proto" class="info-val">—</span>
+                </div>
+                <div class="hotspot-info-item">
+                  <span class="info-label">Авторизация:</span>
+                  <span id="hotspot-found-auth" class="info-val">—</span>
+                </div>
+              </div>
+
+              <!-- Interactive PIN Confirmation Block -->
+              <div id="hotspot-pin-box" class="hotspot-pin-box mt-3">
+                <div class="pin-header-row">
+                  <span class="pin-title">Код сопряжения для экрана телефона:</span>
+                  <button id="btn-regen-pin" class="btn-icon-link" title="Сгенерировать новый код">🔄</button>
+                </div>
+                <div class="pin-display-card">
+                  <span id="hotspot-display-pin" class="font-mono pin-code-digits">4829</span>
+                </div>
+                <p class="pin-hint">Нажмите <strong>«Запросить сопряжение и подключиться»</strong> — на экране телефона появится диалог с этим кодом и кнопкой <strong>[РАЗРЕШИТЬ]</strong>.</p>
+              </div>
+
+              <div class="hotspot-actions mt-3">
+                <button id="btn-connect-hotspot-direct" class="btn btn-primary w-full">⚡ Запросить сопряжение и подключиться</button>
+                <button id="btn-add-hotspot-server" class="btn btn-secondary w-full">💾 Сохранить узел в Серверы</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Hotspot Server Card: Share VPN to LAN -->
+          <div class="hotspot-card hotspot-server-card">
+            <div class="hotspot-card-header">
+              <div class="hotspot-title-group">
+                <span class="hotspot-title">💻 Сервер: Раздача с этого ПК</span>
+                <span class="hotspot-badge hotspot-badge-purple">LAN Раздача</span>
+              </div>
+            </div>
+            <p class="hotspot-card-desc">Раздача VPN-соединения на другие устройства локальной сети (Smart TV, консоли, другие ПК).</p>
+
+            <div class="form-group">
+              <label>Порт прокси для LAN:</label>
+              <input type="number" id="hotspot-port-input" value="10811" min="1024" max="65535">
+            </div>
+            <div class="form-group">
+              <label>IP-адрес в локальной сети:</label>
+              <select id="hotspot-ip-select">
+                <option value="0.0.0.0">Все интерфейсы (0.0.0.0)</option>
+              </select>
+            </div>
+            <button id="btn-toggle-hotspot" class="btn btn-primary mt-2 w-full">Запустить раздачу</button>
+
+            <div class="hotspot-guide-box mt-3">
+              <h4 class="guide-title">Инструкция по подключению:</h4>
+              <ol class="hotspot-steps">
+                <li>Убедитесь, что другое устройство находится в одной Wi-Fi/LAN сети с ПК.</li>
+                <li>В настройках сети устройства укажите <strong>HTTP / SOCKS Прокси</strong>.</li>
+                <li>IP: <strong id="hotspot-guide-ip">192.168.x.x</strong>, Порт: <strong id="hotspot-guide-port">10811</strong>.</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>

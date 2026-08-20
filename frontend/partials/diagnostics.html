@@ -1,0 +1,76 @@
+<section id="view-diagnostics" class="tab-view">
+        <div class="view-header">
+          <div class="view-title-group">
+            <h2 class="view-title" data-i18n="diag_title">Диагностика и безопасность</h2>
+            <p class="view-desc" data-i18n="diag_desc">Проверка утечек DNS/IP, тестирование прокси и генерация ключей</p>
+          </div>
+          <div class="view-actions">
+            <button id="btn-run-diag" class="btn btn-primary">
+              <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3"/></svg>
+              <span>Запустить тест</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="diag-grid">
+          <!-- IP & Geo Leak Checker -->
+          <div class="diag-card">
+            <h3 class="diag-card-title">Проверка публичного IP и утечек</h3>
+            <div class="diag-rows">
+              <div class="diag-row">
+                <span class="diag-label">IP Адрес:</span>
+                <span id="diag-ip-val" class="diag-value font-mono">...</span>
+              </div>
+              <div class="diag-row">
+                <span class="diag-label">Страна / Город:</span>
+                <span id="diag-geo-val" class="diag-value">...</span>
+              </div>
+              <div class="diag-row">
+                <span class="diag-label">Провайдер (ISP):</span>
+                <span id="diag-isp-val" class="diag-value">...</span>
+              </div>
+              <div class="diag-row">
+                <span class="diag-label">ASN:</span>
+                <span id="diag-asn-val" class="diag-value font-mono">...</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Proxy Handshake Latency Test -->
+          <div class="diag-card">
+            <h3 class="diag-card-title">Тест сквозного пинга через прокси</h3>
+            <div class="diag-rows">
+              <div class="diag-row">
+                <span class="diag-label">Целевой URL:</span>
+                <span class="diag-value font-mono">http://cp.cloudflare.com/generate_204</span>
+              </div>
+              <div class="diag-row">
+                <span class="diag-label">Реальная задержка:</span>
+                <span id="diag-proxy-ping-val" class="diag-value font-mono">—</span>
+              </div>
+              <div class="diag-row">
+                <span class="diag-label">Статус:</span>
+                <span id="diag-proxy-ping-status" class="diag-value">Ожидание теста</span>
+              </div>
+            </div>
+            <button id="btn-test-proxy-ping" class="btn btn-sm btn-secondary mt-3">Тест задержки прокси</button>
+          </div>
+
+          <!-- Cryptography Keypair Generator -->
+          <div class="diag-card">
+            <h3 class="diag-card-title">Генератор криптографических ключей (Post-Quantum)</h3>
+            <p class="diag-desc">Генерация ключей X25519 и ML-KEM-768 для VLESS Reality и Kyber квантовой защиты</p>
+            <div class="diag-rows">
+              <div class="diag-row">
+                <span class="diag-label">Private Key:</span>
+                <span id="diag-priv-key" class="diag-value font-mono text-truncate">—</span>
+              </div>
+              <div class="diag-row">
+                <span class="diag-label">Public Key:</span>
+                <span id="diag-pub-key" class="diag-value font-mono text-truncate">—</span>
+              </div>
+            </div>
+            <button id="btn-generate-keys" class="btn btn-sm btn-primary mt-3">Сгенерировать новые ключи</button>
+          </div>
+        </div>
+      </section>

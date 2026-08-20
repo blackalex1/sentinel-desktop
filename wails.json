@@ -1,0 +1,23 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "Sentinel-Desktop",
+  "outputfilename": "Sentinel-Desktop.exe",
+  "frontend:dir": "frontend",
+  "frontend:install": "",
+  "frontend:build": "",
+  "frontend:dev:watcher": "",
+  "frontend:dev:serverUrl": "",
+  "author": {
+    "name": "Sentinel Dev",
+    "email": "dev@sentinel.security"
+  },
+  "info": {
+    "companyName": "Sentinel Secure",
+    "productName": "Sentinel Secure Connect",
+    "productVersion": "2.0.0",
+    "copyright": "© 2026 Sentinel Secure. All rights reserved.",
+    "comments": "Sentinel Secure Connect Windows 11 Multi-Core VPN Client"
+  },
+  "wailsjsdir": "./frontend/js",
+  "version": "2.0.0"
+}

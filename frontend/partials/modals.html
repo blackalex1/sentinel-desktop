@@ -1,0 +1,239 @@
+<div id="modal-backdrop" class="modal-backdrop hidden">
+    <!-- 1. EDIT / ADD SERVER MODAL -->
+    <div id="modal-server-editor" class="modal-box hidden">
+      <div class="modal-header">
+        <h3 id="modal-server-title" class="modal-title">Редактирование сервера</h3>
+        <button class="modal-close-btn" data-close-modal>✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- Quick Link Import Section -->
+        <div class="quick-import-card">
+          <label class="quick-import-label">Вставить ссылку на сервер (vless://, vmess://, trojan://, hy2://, ss://...):</label>
+          <div class="quick-import-input-group">
+            <input type="text" id="edit-server-quick-link" placeholder="Вставьте ссылку на узел...">
+            <button id="btn-paste-quick-link" class="btn btn-secondary btn-sm" type="button" title="Вставить из буфера">
+              <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+              <span>Вставить</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="modal-section-divider">
+          <span>или настроить параметры вручную</span>
+        </div>
+
+        <div class="form-row">
+          <div class="form-col">
+            <label>Название сервера:</label>
+            <input type="text" id="edit-server-name" placeholder="Мой сервер">
+          </div>
+          <div class="form-col">
+            <label>Протокол:</label>
+            <select id="edit-server-protocol">
+              <option value="vless">VLESS</option>
+              <option value="vmess">VMess</option>
+              <option value="trojan">Trojan</option>
+              <option value="hy2">Hysteria 2</option>
+              <option value="wireguard">WireGuard</option>
+              <option value="shadowsocks">Shadowsocks</option>
+              <option value="socks5">SOCKS5</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-col flex-2">
+            <label>Хост / IP:</label>
+            <input type="text" id="edit-server-address" placeholder="1.2.3.4">
+          </div>
+          <div class="form-col">
+            <label>Порт:</label>
+            <input type="number" id="edit-server-port" value="443">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-col">
+            <label>UUID / Пароль:</label>
+            <input type="text" id="edit-server-uuid" placeholder="UUID или пароль">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-col">
+            <label>Безопасность (Security):</label>
+            <select id="edit-server-security">
+              <option value="reality">Reality</option>
+              <option value="tls">TLS</option>
+              <option value="none">None</option>
+            </select>
+          </div>
+          <div class="form-col">
+            <label>SNI (Server Name):</label>
+            <input type="text" id="edit-server-sni" placeholder="microsoft.com">
+          </div>
+        </div>
+
+        <div class="form-row" id="row-reality-keys">
+          <div class="form-col">
+            <label>Reality Public Key (pbk):</label>
+            <input type="text" id="edit-server-pbk" placeholder="Public key">
+          </div>
+          <div class="form-col">
+            <label>Short ID (sid):</label>
+            <input type="text" id="edit-server-sid" placeholder="Short ID">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-col">
+            <label>Fingerprint (fp):</label>
+            <select id="edit-server-fp">
+              <option value="chrome">Chrome</option>
+              <option value="firefox">Firefox</option>
+              <option value="safari">Safari</option>
+              <option value="randomized">Randomized</option>
+            </select>
+          </div>
+          <div class="form-col">
+            <label>Flow:</label>
+            <select id="edit-server-flow">
+              <option value="">(None)</option>
+              <option value="xtls-rprx-vision">xtls-rprx-vision</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-close-modal>Отмена</button>
+        <button id="btn-save-server-modal" class="btn btn-primary">Сохранить</button>
+      </div>
+    </div>
+
+    <!-- 2. SUBSCRIPTION IMPORT MODAL -->
+    <div id="modal-sub-import" class="modal-box hidden">
+      <div class="modal-header">
+        <h3 class="modal-title">Импорт подписки или URI</h3>
+        <button class="modal-close-btn" data-close-modal>✕</button>
+      </div>
+      <div class="modal-body">
+        <label>Вставьте ссылку на подписку или прокси-ключи (vless://, vmess://, hy2:// и др.):</label>
+        <textarea id="import-sub-textarea" rows="6" placeholder="vless://...&#10;https://example.com/sub"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-close-modal>Отмена</button>
+        <button id="btn-submit-import" class="btn btn-primary">Импортировать</button>
+      </div>
+    </div>
+
+    <!-- 3. CONFIRMATION DIALOG MODAL -->
+    <div id="modal-confirm" class="modal-box modal-box-sm hidden">
+      <div class="modal-header">
+        <h3 id="modal-confirm-title" class="modal-title">Подтверждение</h3>
+        <button class="modal-close-btn" data-close-modal>✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="confirm-content">
+          <div id="modal-confirm-icon" class="confirm-icon">⚠️</div>
+          <div id="modal-confirm-message" class="confirm-message">Вы уверены?</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="modal-confirm-cancel" class="btn btn-secondary">Отмена</button>
+        <button id="modal-confirm-ok" class="btn btn-danger">Удалить</button>
+      </div>
+    </div>
+
+    <!-- 4. ROUTING RULE MODAL -->
+    <div id="modal-custom-rule" class="modal-box hidden" style="width: 520px; max-width: 95%;">
+      <div class="modal-header">
+        <h3 id="modal-routing-rule-title" class="modal-title">Правило маршрутизации</h3>
+        <button class="modal-close-btn" data-close-modal>✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="rule-modal-id">
+        <div class="form-row">
+          <div class="form-col">
+            <label>Название / Описание:</label>
+            <input type="text" id="rule-modal-remark" placeholder="Например: Block BitTorrent">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-col">
+            <label>Выходной маршрут:</label>
+            <select id="rule-modal-outbound">
+              <option value="DIRECT">DIRECT (Прямо)</option>
+              <option value="BLOCKED">BLOCKED (Блок)</option>
+              <option value="PROXY">PROXY (VPN)</option>
+            </select>
+          </div>
+          <div class="form-col">
+            <label>Протоколы (через запятую):</label>
+            <input type="text" id="rule-modal-protocols" placeholder="bittorrent, quic, http">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-col">
+            <label>Входящие (Inbounds):</label>
+            <input type="text" id="rule-modal-inbounds" placeholder="tun-in, mixed-in (пусто = все)">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-col">
+            <label>Домены / Списки (по одному на строку или через запятую):</label>
+            <textarea id="rule-modal-domains" rows="3" placeholder="geosite:category-ads&#10;example.com&#10;domain:google.com"></textarea>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-col">
+            <label>IP адреса / CIDR / GeoIP:</label>
+            <textarea id="rule-modal-ips" rows="3" placeholder="geoip:ru&#10;192.168.1.0/24&#10;1.1.1.1"></textarea>
+          </div>
+        </div>
+        <div class="form-row" style="align-items: center; justify-content: space-between; margin-top: 6px;">
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; font-weight: 500;">
+            <span class="switch-toggle">
+              <input type="checkbox" id="rule-modal-enable" checked>
+              <span class="switch-slider"></span>
+            </span>
+            <span>Правило активно</span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-close-modal>Отмена</button>
+        <button id="btn-save-rule-modal" class="btn btn-primary">Сохранить правило</button>
+      </div>
+    </div>
+
+    <!-- 5. PRESET IMPORT MODAL -->
+    <div id="modal-preset-import" class="modal-box modal-box-sm hidden">
+      <div class="modal-header">
+        <h3 class="modal-title">Импорт пресета правил</h3>
+        <button class="modal-close-btn" data-close-modal>✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-col">
+            <label>Выберите источник или файл:</label>
+            <select id="preset-import-source">
+              <option value="custom">Загрузить JSON файл</option>
+              <option value="ru_bypass">Пресет: Обход блокировок РФ (Bypass RU)</option>
+              <option value="security_strict">Пресет: Максимальная защита (AdBlock + No-P2P)</option>
+              <option value="china_direct">Пресет: Прямой Китай (CN Direct)</option>
+            </select>
+          </div>
+        </div>
+        <div id="preset-file-group" class="form-row">
+          <div class="form-col">
+            <label>Вставьте JSON пресета:</label>
+            <textarea id="preset-import-json" rows="6" placeholder='{"rules": [...]}'></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-close-modal>Отмена</button>
+        <button id="btn-submit-preset-import" class="btn btn-primary">Применить пресет</button>
+      </div>
+    </div>
+  </div>

@@ -1,0 +1,260 @@
+/* ==========================================================================
+   Sentinel Secure Desktop - Sentinel Hotspot & LAN Module
+   ========================================================================== */
+
+.hotspot-layout {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 16px;
+}
+
+.hotspot-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hotspot-card:hover {
+  border-color: rgba(138, 43, 226, 0.35);
+  box-shadow: 0 6px 24px rgba(138, 43, 226, 0.08);
+}
+
+.hotspot-card-header {
+  margin-bottom: 8px;
+}
+
+.hotspot-title-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.hotspot-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.hotspot-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(0, 240, 255, 0.12);
+  color: var(--accent-cyan);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  letter-spacing: 0.03em;
+}
+
+.hotspot-badge-purple {
+  background: rgba(138, 43, 226, 0.12);
+  color: #c084fc;
+  border-color: rgba(138, 43, 226, 0.25);
+}
+
+.hotspot-card-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin-bottom: 16px;
+}
+
+.input-with-action {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.input-with-action input {
+  flex: 1;
+}
+
+.hotspot-adapter-select {
+  width: 100%;
+  box-sizing: border-box;
+  background-color: #0d0f18;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2300f0ff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px 12px;
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  border-radius: 9px;
+  color: #f1f5f9;
+  font-size: 13px;
+  padding: 10px 34px 10px 12px;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  transition: all 0.2s ease;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.hotspot-adapter-select:hover {
+  border-color: rgba(0, 240, 255, 0.5);
+  background-color: #121522;
+}
+
+.hotspot-adapter-select:focus {
+  border-color: #00f0ff;
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.35);
+}
+
+.hotspot-adapter-select option {
+  background-color: #121522;
+  color: #f1f5f9;
+  padding: 8px 10px;
+}
+
+.hotspot-phone-box {
+  margin-top: 14px;
+  background: rgba(10, 14, 26, 0.6);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  border-radius: 10px;
+  padding: 14px;
+  animation: fadeIn 0.25s ease-out;
+}
+
+.hotspot-status-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-cyan);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+}
+
+.hotspot-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.hotspot-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hotspot-info-item .info-label {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.hotspot-info-item .info-val {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.hotspot-pin-box {
+  background: rgba(13, 19, 34, 0.7);
+  border: 1px dashed rgba(0, 240, 255, 0.35);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.pin-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.pin-title {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.btn-icon-link {
+  background: none;
+  border: none;
+  color: var(--accent-cyan);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 4px;
+}
+
+.pin-display-card {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(0, 240, 255, 0.5);
+  border-radius: 8px;
+  padding: 8px 12px;
+  text-align: center;
+  margin: 6px 0;
+}
+
+.pin-code-digits {
+  font-size: 26px;
+  font-weight: 900;
+  color: var(--accent-cyan);
+  letter-spacing: 6px;
+  text-shadow: 0 0 12px rgba(0, 240, 255, 0.6);
+}
+
+.pin-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.pin-hint strong {
+  color: var(--text-primary);
+}
+
+.hotspot-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.hotspot-actions button {
+  flex: 1;
+}
+
+.hotspot-guide-box {
+  background: rgba(10, 14, 26, 0.4);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.guide-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.hotspot-steps {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.hotspot-steps strong {
+  color: var(--accent-cyan);
+}

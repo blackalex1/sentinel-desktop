@@ -1,0 +1,17 @@
+/* ==========================================================================
+   Sentinel Secure Desktop - Root CSS (Modular Import Architecture)
+   ========================================================================== */
+
+@import "modules/layout.css";
+@import "modules/radar.css";
+@import "modules/telemetry.css";
+@import "modules/servers.css";
+@import "modules/routing.css";
+@import "modules/cores.css";
+@import "modules/diagnostics.css";
+@import "modules/terminal.css";
+@import "modules/hotspot.css";
+@import "modules/settings.css";
+@import "modules/modals.css";
+@import "modules/toasts.css";
+@import "modules/utilities.css";
