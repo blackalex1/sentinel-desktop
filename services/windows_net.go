@@ -436,3 +436,37 @@ func (w *WindowsNetManager) StopLANProxy() {
 		fmt.Println("[WindowsNet] LAN proxy gateway stopped.")
 	}
 }
+
+// IsPortAvailable checks if a TCP port can be bound on 127.0.0.1.
+func IsPortAvailable(port int) bool {
+	if port <= 0 || port > 65535 {
+		return false
+	}
+	l, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	if err != nil {
+		return false
+	}
+	_ = l.Close()
+	return true
+}
+
+// FindAvailablePort returns preferredPort if free, or the next available TCP port.
+func FindAvailablePort(preferredPort int) int {
+	if preferredPort <= 0 {
+		preferredPort = 10808
+	}
+	for p := preferredPort; p < preferredPort+100; p++ {
+		if IsPortAvailable(p) {
+			return p
+		}
+	}
+	// Fallback to random free port by binding to 0
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err == nil {
+		defer l.Close()
+		if tcpAddr, ok := l.Addr().(*net.TCPAddr); ok {
+			return tcpAddr.Port
+		}
+	}
+	return preferredPort
+}
