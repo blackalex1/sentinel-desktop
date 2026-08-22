@@ -37,6 +37,9 @@ type ProcessSupervisor struct {
 	uploadSpeed   int64
 	totalDownload int64
 	totalUpload   int64
+	socksPort     int
+	httpPort      int
+	clashPort     int
 	startedAt     time.Time
 }
 
@@ -96,7 +99,7 @@ func (s *ProcessSupervisor) initJobObject() {
 }
 
 // StartCore starts a core binary with the specified config JSON.
-func (s *ProcessSupervisor) StartCore(coreType, binPath, configJSON string) error {
+func (s *ProcessSupervisor) StartCore(coreType, binPath, configJSON string, socksPort, httpPort, clashPort int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -105,6 +108,9 @@ func (s *ProcessSupervisor) StartCore(coreType, binPath, configJSON string) erro
 
 	coreLower := strings.ToLower(coreType)
 	s.activeCore = coreLower
+	s.socksPort = socksPort
+	s.httpPort = httpPort
+	s.clashPort = clashPort
 
 	// Verify binary
 	absBin, err := filepath.Abs(binPath)
@@ -113,6 +119,19 @@ func (s *ProcessSupervisor) StartCore(coreType, binPath, configJSON string) erro
 	}
 	if fi, err := os.Stat(absBin); err != nil || fi.Size() < 50000 {
 		return fmt.Errorf("core binary not found or invalid at: %s", absBin)
+	}
+
+	// Kill any stray instances of this binary (e.g. from a previous crash)
+	// that may be holding the proxy port. taskkill /F /IM is best-effort.
+	exeName := filepath.Base(absBin)
+	killStray := exec.Command("taskkill", "/F", "/IM", exeName)
+	killStray.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x08000000, HideWindow: true}
+	if out, kerr := killStray.CombinedOutput(); kerr == nil {
+		trimmed := strings.TrimSpace(string(out))
+		if trimmed != "" {
+			s.appendLog(fmt.Sprintf("[Sentinel] Killed stray %s instances: %s", exeName, trimmed))
+		}
+		time.Sleep(500 * time.Millisecond) // give OS time to release ports
 	}
 
 	// Write config to temporary file in binaries directory
@@ -173,7 +192,7 @@ func (s *ProcessSupervisor) StartCore(coreType, binPath, configJSON string) erro
 	s.downloadSpeed = 0
 	s.uploadSpeed = 0
 
-	s.appendLog(fmt.Sprintf("[Sentinel] Started %s core (PID: %d)", coreType, cmd.Process.Pid))
+	s.appendLog(fmt.Sprintf("[Sentinel] Started %s core (PID: %d, SOCKS: %d, HTTP: %d)", coreType, cmd.Process.Pid, socksPort, httpPort))
 
 	// Stream stdout & stderr in background goroutines
 	go s.streamPipe(stdoutPipe, coreType)
@@ -219,6 +238,10 @@ func (s *ProcessSupervisor) pollTelemetry(ctx context.Context) {
 		case <-ticker.C:
 			s.mu.Lock()
 			running := s.isRunning
+			clashPort := s.clashPort
+			if clashPort <= 0 {
+				clashPort = 9090
+			}
 			s.mu.Unlock()
 			if !running {
 				return
@@ -226,8 +249,8 @@ func (s *ProcessSupervisor) pollTelemetry(ctx context.Context) {
 
 			var dlSpeed, ulSpeed, totalDl, totalUl int64
 
-			// Query Clash API at 127.0.0.1:9090/connections
-			resp, err := client.Get("http://127.0.0.1:9090/connections")
+			// Query Clash API at 127.0.0.1:<clashPort>/connections
+			resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/connections", clashPort))
 			if err == nil {
 				var connStats struct {
 					DownloadTotal int64 `json:"downloadTotal"`
@@ -358,10 +381,40 @@ func (s *ProcessSupervisor) stopCoreLocked() {
 		s.currentCmd = nil
 	}
 
+	// Also kill any stray core binaries by name to ensure no background zombies
+	for _, bin := range []string{"sing-box.exe", "xray.exe", "wxray.exe", "hysteria.exe"} {
+		kCmd := exec.Command("taskkill", "/F", "/IM", bin)
+		kCmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x08000000, HideWindow: true}
+		_ = kCmd.Run()
+	}
+
 	s.isRunning = false
 	s.activeCore = ""
+	s.socksPort = 0
+	s.httpPort = 0
+	s.clashPort = 0
 	s.downloadSpeed = 0
 	s.uploadSpeed = 0
+}
+
+// GetCurrentSocksPort returns the active SOCKS5 port.
+func (s *ProcessSupervisor) GetCurrentSocksPort() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.socksPort > 0 {
+		return s.socksPort
+	}
+	return 10808
+}
+
+// GetCurrentHttpPort returns the active HTTP port.
+func (s *ProcessSupervisor) GetCurrentHttpPort() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.httpPort > 0 {
+		return s.httpPort
+	}
+	return 10809
 }
 
 // IsRunning returns whether a VPN core process is currently active.

@@ -30,3 +30,13 @@ Thumbs.db
 .idea/
 *.suo
 *.user
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+old/
+mascot/
+
