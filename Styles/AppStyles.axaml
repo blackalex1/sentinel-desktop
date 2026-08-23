@@ -1,0 +1,112 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Premium Glass Card Style -->
+    <Style Selector="Border.glass-card">
+        <Setter Property="Background" Value="#0F1426" />
+        <Setter Property="BorderBrush" Value="#222B42" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="18" />
+        <Setter Property="Padding" Value="24,20" />
+        <Setter Property="BoxShadow" Value="0 8 32 0 #50000000" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.25" />
+                <BrushTransition Property="Background" Duration="0:0:0.25" />
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="Border.glass-card:pointerover">
+        <Setter Property="BorderBrush" Value="#4C3A7A" />
+        <Setter Property="Background" Value="#141B33" />
+    </Style>
+
+    <!-- Sub Panel Card -->
+    <Style Selector="Border.sub-panel">
+        <Setter Property="Background" Value="#0A0E1C" />
+        <Setter Property="BorderBrush" Value="#1A2236" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="14" />
+        <Setter Property="Padding" Value="14,12" />
+    </Style>
+
+    <!-- Sidebar Navigation Buttons -->
+    <Style Selector="Button.nav-item">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="Padding" Value="14,11" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.2" />
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.2" />
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="Button.nav-item:pointerover">
+        <Setter Property="Background" Value="#10162B" />
+        <Setter Property="BorderBrush" Value="#1E2A48" />
+    </Style>
+    <Style Selector="Button.nav-item.active">
+        <Setter Property="Background" Value="#141A30" />
+        <Setter Property="BorderBrush" Value="#253050" />
+    </Style>
+
+    <!-- Segmented Mode Buttons -->
+    <Style Selector="Button.segment-btn">
+        <Setter Property="Background" Value="#060914" />
+        <Setter Property="Foreground" Value="#94A3B8" />
+        <Setter Property="BorderBrush" Value="#1E293B" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Padding" Value="12,9" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.segment-btn:pointerover">
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="Background" Value="#0F172A" />
+    </Style>
+    <Style Selector="Button.segment-btn.active">
+        <Setter Property="Background" Value="#164E63" />
+        <Setter Property="Foreground" Value="#22D3EE" />
+        <Setter Property="BorderBrush" Value="#06B6D4" />
+    </Style>
+
+    <!-- Glowing Master Connect Button -->
+    <Style Selector="Button.hero-connect">
+        <Setter Property="Background" Value="#7C3AED" />
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="CornerRadius" Value="24" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Padding" Value="26,12" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.2" />
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="Button.hero-connect:pointerover">
+        <Setter Property="Background" Value="#9055FF" />
+    </Style>
+    <Style Selector="Button.hero-connect.connected">
+        <Setter Property="Background" Value="#0D9488" />
+        <Setter Property="BorderBrush" Value="#2DD4BF" />
+    </Style>
+
+    <!-- Glowing Accent Button -->
+    <Style Selector="Button.accent-glow">
+        <Setter Property="Background" Value="#8B5CF6" />
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Padding" Value="18,10" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.accent-glow:pointerover">
+        <Setter Property="Background" Value="#A78BFA" />
+    </Style>
+</Styles>

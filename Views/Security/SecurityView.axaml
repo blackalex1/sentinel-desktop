@@ -1,0 +1,566 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SentinelDesktop.ViewModels"
+             xmlns:models="using:SentinelDesktop.Models"
+             x:Class="SentinelDesktop.Views.Security.SecurityView"
+             x:DataType="vm:SecurityViewModel"
+             x:Name="Root">
+
+    <Grid>
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="20" Margin="32,24,32,28">
+                
+                <!-- 1. TOP HEADER & SHIELD BADGES -->
+                <DockPanel Margin="0,0,0,4">
+                    <!-- Left Title -->
+                    <StackPanel DockPanel.Dock="Left" Spacing="4">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="Безопасность и Кибер-щит" FontSize="22" FontWeight="ExtraBold" Foreground="White" />
+                            <Border Background="#064E3B" BorderBrush="#10B981" BorderThickness="1" CornerRadius="10" Padding="8,2" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding ProtectedPortsCount, StringFormat='Активно щитов: {0}'}" FontSize="11" FontWeight="Bold" Foreground="#34D399" FontFamily="Consolas, monospace" />
+                            </Border>
+                        </StackPanel>
+                        <TextBlock Text="Защита от сканирования портов, предотвращение эксплойтов WannaCry/EternalBlue, DNS Leak Protection и KillSwitch" FontSize="12" Foreground="#64748B" />
+                    </StackPanel>
+                </DockPanel>
+
+                <!-- 2. MASTER GAUGES / QUICK SHIELDS (4 Cards Grid) -->
+                <Grid ColumnDefinitions="*,12,*,12,*,12,*">
+                    <!-- 1. PortShield -->
+                    <Border Grid.Column="0" Classes="glass-card" Padding="14,12">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="PORTSHIELD" FontSize="9" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" />
+                            <TextBlock Text="{Binding ProtectedPortsDisplay}" FontSize="14" FontWeight="Bold" Foreground="#38BDF8" />
+                            <TextBlock Text="Сетевая изоляция" FontSize="10" Foreground="#475569" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 2. KillSwitch -->
+                    <Border Grid.Column="2" Classes="glass-card" Padding="14,12">
+                        <StackPanel Spacing="4">
+                            <DockPanel>
+                                <TextBlock Text="KILLSWITCH" FontSize="9" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" DockPanel.Dock="Left" />
+                                <ToggleSwitch IsChecked="{Binding KillSwitchEnabled, Mode=TwoWay}"
+                                              Command="{Binding ToggleKillSwitchCommand}"
+                                              OnContent="" OffContent=""
+                                              HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,-6,-4,-6" />
+                            </DockPanel>
+                            <TextBlock Text="{Binding KillSwitchStatusText}" FontSize="14" FontWeight="Bold" Foreground="#34D399" />
+                            <TextBlock Text="Блокировка утечек" FontSize="10" Foreground="#475569" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 3. DNS Leak -->
+                    <Border Grid.Column="4" Classes="glass-card" Padding="14,12">
+                        <StackPanel Spacing="4">
+                            <DockPanel>
+                                <TextBlock Text="DNS LEAK" FontSize="9" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" DockPanel.Dock="Left" />
+                                <ToggleSwitch IsChecked="{Binding DnsLeakShieldEnabled, Mode=TwoWay}"
+                                              Command="{Binding ToggleDnsLeakShieldCommand}"
+                                              OnContent="" OffContent=""
+                                              HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,-6,-4,-6" />
+                            </DockPanel>
+                            <TextBlock Text="{Binding DnsStatusText}" FontSize="14" FontWeight="Bold" Foreground="#C084FC" />
+                            <TextBlock Text="Шифрование запросов" FontSize="10" Foreground="#475569" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 4. AdBlock -->
+                    <Border Grid.Column="6" Classes="glass-card" Padding="14,12">
+                        <StackPanel Spacing="4">
+                            <DockPanel>
+                                <TextBlock Text="АНТИ-ТРЕКЕР" FontSize="9" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" DockPanel.Dock="Left" />
+                                <ToggleSwitch IsChecked="{Binding AdBlockShieldEnabled, Mode=TwoWay}"
+                                              Command="{Binding ToggleAdBlockShieldCommand}"
+                                              OnContent="" OffContent=""
+                                              HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,-6,-4,-6" />
+                            </DockPanel>
+                            <TextBlock Text="{Binding AdBlockStatusText}" FontSize="14" FontWeight="Bold" Foreground="#FBBF24" />
+                            <TextBlock Text="DPI Фильтрация" FontSize="10" Foreground="#475569" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- 3. POLICY CONFIGURATION CARD (Параметры политики реагирования и защиты) -->
+                <Border Background="#090D1C" BorderBrush="#1E2638" BorderThickness="1" CornerRadius="14" Padding="18,16">
+                    <StackPanel Spacing="14">
+                        <!-- Top Header -->
+                        <DockPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8" DockPanel.Dock="Left" VerticalAlignment="Center">
+                                <PathIcon Data="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z" Width="14" Height="14" Foreground="#C084FC" />
+                                <TextBlock Text="Параметры политики реагирования и защиты" FontSize="13.5" FontWeight="Bold" Foreground="White" />
+                            </StackPanel>
+
+                            <Border Background="#064E3B" BorderBrush="#10B981" BorderThickness="1" CornerRadius="8" Padding="8,3" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding ShieldModeDisplay, StringFormat='Ядро активно: {0}'}" FontSize="10.5" FontWeight="Bold" Foreground="#34D399" FontFamily="Consolas, monospace" />
+                            </Border>
+                        </DockPanel>
+
+                        <!-- Middle Selectors (Grid 2 Columns) -->
+                        <Grid ColumnDefinitions="3*,16,2*">
+                            <!-- Left Column: Shield Mode -->
+                            <StackPanel Grid.Column="0" Spacing="6">
+                                <TextBlock Text="Режим экранирования портов:" FontSize="11" Foreground="#94A3B8" />
+                                <WrapPanel Orientation="Horizontal">
+                                    <!-- Threshold Mode -->
+                                    <Button Command="{Binding SetShieldModeCommand}" CommandParameter="threshold_block"
+                                            Classes="segment-btn"
+                                            Classes.active="{Binding IsThresholdMode}"
+                                            Margin="0,0,6,6" Padding="10,6">
+                                        <TextBlock Text="{Binding BlockThreshold, StringFormat='🛡️ Пороговый ({0} поп.)'}" FontSize="11" FontWeight="SemiBold" />
+                                    </Button>
+
+                                    <!-- Strict Mode -->
+                                    <Button Command="{Binding SetShieldModeCommand}" CommandParameter="strict_block"
+                                            Classes="segment-btn"
+                                            Classes.active="{Binding IsStrictMode}"
+                                            Margin="0,0,6,6" Padding="10,6">
+                                        <TextBlock Text="⚡ Строгий Zero Trust" FontSize="11" FontWeight="SemiBold" />
+                                    </Button>
+
+                                    <!-- Alert Only Mode -->
+                                    <Button Command="{Binding SetShieldModeCommand}" CommandParameter="alert_only"
+                                            Classes="segment-btn"
+                                            Classes.active="{Binding IsAlertOnlyMode}"
+                                            Margin="0,0,6,6" Padding="10,6">
+                                        <TextBlock Text="👁️ Только аудит" FontSize="11" FontWeight="SemiBold" />
+                                    </Button>
+                                </WrapPanel>
+                            </StackPanel>
+
+                            <!-- Right Column: Dynamic Parameters based on mode -->
+                            <StackPanel Grid.Column="2" Spacing="6">
+                                <!-- Threshold selector (visible only in threshold mode) -->
+                                <StackPanel IsVisible="{Binding IsThresholdMode}" Spacing="6">
+                                    <TextBlock Text="Порог попыток до блока:" FontSize="11" Foreground="#94A3B8" />
+                                    <StackPanel Orientation="Horizontal" Spacing="5">
+                                        <Button Command="{Binding SetBlockThresholdCommand}" CommandParameter="1"
+                                                Classes="segment-btn" Classes.active="{Binding IsThreshold1}"
+                                                Padding="10,4" CornerRadius="6">
+                                            <TextBlock Text="1" FontSize="11" FontWeight="Bold" />
+                                        </Button>
+                                        <Button Command="{Binding SetBlockThresholdCommand}" CommandParameter="2"
+                                                Classes="segment-btn" Classes.active="{Binding IsThreshold2}"
+                                                Padding="10,4" CornerRadius="6">
+                                            <TextBlock Text="2" FontSize="11" FontWeight="Bold" />
+                                        </Button>
+                                        <Button Command="{Binding SetBlockThresholdCommand}" CommandParameter="3"
+                                                Classes="segment-btn" Classes.active="{Binding IsThreshold3}"
+                                                Padding="10,4" CornerRadius="6">
+                                            <TextBlock Text="3" FontSize="11" FontWeight="Bold" />
+                                        </Button>
+                                        <Button Command="{Binding SetBlockThresholdCommand}" CommandParameter="5"
+                                                Classes="segment-btn" Classes.active="{Binding IsThreshold5}"
+                                                Padding="10,4" CornerRadius="6">
+                                            <TextBlock Text="5" FontSize="11" FontWeight="Bold" />
+                                        </Button>
+                                        <Button Command="{Binding SetBlockThresholdCommand}" CommandParameter="10"
+                                                Classes="segment-btn" Classes.active="{Binding IsThreshold10}"
+                                                Padding="10,4" CornerRadius="6">
+                                            <TextBlock Text="10" FontSize="11" FontWeight="Bold" />
+                                        </Button>
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- Strict Mode Banner -->
+                                <Border IsVisible="{Binding IsStrictMode}"
+                                        Background="#451A03" BorderBrush="#F59E0B" BorderThickness="1" CornerRadius="8" Padding="10,6" Margin="0,18,0,0">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="⚡" FontSize="12" />
+                                        <TextBlock Text="Мгновенный сброс с 1-го запроса" FontSize="10.5" FontWeight="Bold" Foreground="#FBBF24" />
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Alert Only Mode Banner -->
+                                <Border IsVisible="{Binding IsAlertOnlyMode}"
+                                        Background="#2E1065" BorderBrush="#8B5CF6" BorderThickness="1" CornerRadius="8" Padding="10,6" Margin="0,18,0,0">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="👁️" FontSize="12" />
+                                        <TextBlock Text="Без блокировок (только аудит логов)" FontSize="10.5" FontWeight="Bold" Foreground="#C084FC" />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Bottom Auto-Unblock Timeout Row -->
+                        <DockPanel Margin="0,4,0,0">
+                            <TextBlock Text="Авто-разблокировка IP:" FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center" DockPanel.Dock="Left" Margin="0,0,12,0" />
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Button Command="{Binding SetAutoUnblockMinutesCommand}" CommandParameter="0"
+                                        Classes="segment-btn" Classes.active="{Binding IsUnblock0}"
+                                        Padding="8,4" CornerRadius="6">
+                                    <TextBlock Text="Навсегда" FontSize="10.5" FontWeight="SemiBold" />
+                                </Button>
+                                <Button Command="{Binding SetAutoUnblockMinutesCommand}" CommandParameter="5"
+                                        Classes="segment-btn" Classes.active="{Binding IsUnblock5}"
+                                        Padding="8,4" CornerRadius="6">
+                                    <TextBlock Text="5 мин" FontSize="10.5" FontWeight="SemiBold" />
+                                </Button>
+                                <Button Command="{Binding SetAutoUnblockMinutesCommand}" CommandParameter="15"
+                                        Classes="segment-btn" Classes.active="{Binding IsUnblock15}"
+                                        Padding="8,4" CornerRadius="6">
+                                    <TextBlock Text="15 мин" FontSize="10.5" FontWeight="SemiBold" />
+                                </Button>
+                                <Button Command="{Binding SetAutoUnblockMinutesCommand}" CommandParameter="60"
+                                        Classes="segment-btn" Classes.active="{Binding IsUnblock60}"
+                                        Padding="8,4" CornerRadius="6">
+                                    <TextBlock Text="1 час" FontSize="10.5" FontWeight="SemiBold" />
+                                </Button>
+                                <Button Command="{Binding SetAutoUnblockMinutesCommand}" CommandParameter="1440"
+                                        Classes="segment-btn" Classes.active="{Binding IsUnblock1440}"
+                                        Padding="8,4" CornerRadius="6">
+                                    <TextBlock Text="24 часа" FontSize="10.5" FontWeight="SemiBold" />
+                                </Button>
+                            </StackPanel>
+                        </DockPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- 4. TAB CONTROLS (PortShield / Live Incidents / Add Port) -->
+                <Border Margin="0,4,0,0">
+                    <DockPanel>
+                        <!-- Tab Switchers -->
+                        <StackPanel Orientation="Horizontal" Spacing="8" DockPanel.Dock="Left">
+                            <Button Command="{Binding SelectTabCommand}" CommandParameter="SHIELD"
+                                    Classes="segment-btn"
+                                    Classes.active="{Binding IsShieldTabActive}"
+                                    Padding="16,8">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <PathIcon Data="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" Width="13" Height="13" Foreground="#38BDF8" />
+                                    <TextBlock Text="Тактический PortShield" FontSize="12" FontWeight="Bold" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button Command="{Binding SelectTabCommand}" CommandParameter="INCIDENTS"
+                                    Classes="segment-btn"
+                                    Classes.active="{Binding IsIncidentsTabActive}"
+                                    Padding="16,8">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <PathIcon Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" Width="13" Height="13" Foreground="#F87171" />
+                                    <TextBlock Text="{Binding BlockedThreatsCount, StringFormat='Инциденты угроз ({0})'}" FontSize="12" FontWeight="Bold" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button Command="{Binding SelectTabCommand}" CommandParameter="BLOCKED_APPS"
+                                    Classes="segment-btn"
+                                    Classes.active="{Binding IsBlockedAppsTabActive}"
+                                    Padding="16,8">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <PathIcon Data="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z" Width="13" Height="13" Foreground="#F59E0B" />
+                                    <TextBlock Text="{Binding BlockedAppsCount, StringFormat='Приложения в блоке ({0})'}" FontSize="12" FontWeight="Bold" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+
+                        <!-- Right Actions -->
+                        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                            <!-- Add Custom Port Button -->
+                            <Button IsVisible="{Binding IsShieldTabActive}"
+                                    Command="{Binding OpenAddPortDialogCommand}"
+                                    Classes="accent-glow"
+                                    Padding="14,7" CornerRadius="8">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <PathIcon Data="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" Width="12" Height="12" Foreground="White" />
+                                    <TextBlock Text="Добавить порт" FontSize="11.5" FontWeight="Bold" Foreground="White" />
+                                </StackPanel>
+                            </Button>
+
+                            <!-- Clear Incidents Button -->
+                            <Button IsVisible="{Binding IsIncidentsTabActive}"
+                                    Command="{Binding ClearAllIncidentsCommand}"
+                                    Classes="segment-btn"
+                                    Padding="12,6">
+                                <TextBlock Text="Очистить инциденты" FontSize="11" Foreground="#F87171" />
+                            </Button>
+
+                            <!-- Unblock All Apps Button -->
+                            <Button IsVisible="{Binding IsBlockedAppsTabActive}"
+                                    Command="{Binding UnblockAllAppsCommand}"
+                                    Classes="segment-btn"
+                                    Padding="12,6">
+                                <TextBlock Text="Разблокировать все" FontSize="11" Foreground="#38BDF8" />
+                            </Button>
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
+                <!-- 5. TAB 1: PORTSHIELD GRID -->
+                <StackPanel IsVisible="{Binding IsShieldTabActive}" Spacing="10">
+                    <ItemsControl ItemsSource="{Binding PortRules}" x:CompileBindings="False">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Classes="glass-card" Margin="0,0,0,10" Padding="18,14">
+                                    <DockPanel>
+                                        <!-- Right Controls (Delete if custom, Toggle Switch) -->
+                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0" Spacing="10">
+                                            <!-- Delete Custom Port Button -->
+                                            <Button IsVisible="{Binding IsCustom}"
+                                                    Command="{Binding #Root.DataContext.DeletePortRuleCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    Padding="6" CornerRadius="6" Background="#230E12" BorderBrush="#5B161B" BorderThickness="1"
+                                                    ToolTip.Tip="Удалить пользовательский порт">
+                                                <PathIcon Data="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" Width="10" Height="10" Foreground="#F87171" />
+                                            </Button>
+
+                                            <!-- Toggle Switch -->
+                                            <ToggleSwitch IsChecked="{Binding IsProtected, Mode=TwoWay}"
+                                                          Command="{Binding #Root.DataContext.TogglePortRuleCommand}"
+                                                          CommandParameter="{Binding}"
+                                                          OnContent="" OffContent=""
+                                                          HorizontalAlignment="Right" />
+                                        </StackPanel>
+
+                                        <!-- Left Port & Severity Badge -->
+                                        <StackPanel Orientation="Horizontal" Spacing="10" DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,16,0">
+                                            <Border Background="{Binding SeverityBg}" BorderBrush="{Binding SeverityColor}" BorderThickness="1" CornerRadius="8" Padding="8,5" MinWidth="96">
+                                                <TextBlock Text="{Binding PortDisplay}" FontSize="11" FontWeight="ExtraBold" Foreground="{Binding SeverityColor}" FontFamily="Consolas, monospace" HorizontalAlignment="Center" />
+                                            </Border>
+                                        </StackPanel>
+
+                                        <!-- Center Info -->
+                                        <StackPanel Spacing="3" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="Bold" Foreground="White" />
+                                                <Border Background="{Binding SeverityBg}" CornerRadius="4" Padding="6,1" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Severity, StringFormat='Уровень: {0}'}" FontSize="9" FontWeight="Bold" Foreground="{Binding SeverityColor}" FontFamily="Consolas, monospace" />
+                                                </Border>
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding ThreatRisk}" FontSize="11" Foreground="#94A3B8" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- 6. TAB 2: LIVE THREAT INCIDENTS FEED -->
+                <StackPanel IsVisible="{Binding IsIncidentsTabActive}" Spacing="10">
+                    <Border IsVisible="{Binding !BlockedThreatsCount}"
+                            Classes="glass-card" Padding="36" HorizontalAlignment="Stretch">
+                        <StackPanel Spacing="10" HorizontalAlignment="Center">
+                            <PathIcon Data="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" Width="36" Height="36" Foreground="#34D399" HorizontalAlignment="Center" />
+                            <TextBlock Text="Сетевых инцидентов и угроз не зафиксировано" FontSize="14" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" />
+                            <TextBlock Text="Активные PortShield-фильтры защищают порты SMB, RDP, RPC и DNS от сетевого сканирования" FontSize="11" Foreground="#64748B" HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+
+                    <ItemsControl ItemsSource="{Binding Incidents}" x:CompileBindings="False">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Classes="glass-card" Margin="0,0,0,8" Padding="14,10">
+                                    <DockPanel>
+                                        <!-- Right Time -->
+                                        <TextBlock Text="{Binding TimeFormatted}" FontSize="11" Foreground="#64748B" FontFamily="Consolas, monospace" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="10,0,0,0" />
+
+                                        <!-- Left Action Badge -->
+                                        <Border Background="{Binding ActionBg}" CornerRadius="6" Padding="8,3" DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,14,0">
+                                            <TextBlock Text="{Binding ActionTaken}" FontSize="10" FontWeight="Bold" Foreground="{Binding ActionColor}" FontFamily="Consolas, monospace" />
+                                        </Border>
+
+                                        <!-- Center Threat Info -->
+                                        <StackPanel Spacing="2" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <TextBlock Text="{Binding EndpointDisplay}" FontSize="13" FontWeight="Bold" Foreground="White" FontFamily="Consolas, monospace" />
+                                                <TextBlock Text="{Binding Category, StringFormat='[{0}]'}" FontSize="11" Foreground="#94A3B8" />
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding Description}" FontSize="11" Foreground="#CBD5E1" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- 7. TAB 3: BLOCKED / QUARANTINED APPS & PCAP FORENSIC CAPTURE -->
+                <StackPanel IsVisible="{Binding IsBlockedAppsTabActive}" Spacing="14">
+                    
+                    <!-- 7.1 PCAP Live Capture Status Banner -->
+                    <Border Background="#090D1C" BorderBrush="#1E2638" BorderThickness="1" CornerRadius="14" Padding="18,14">
+                        <StackPanel Spacing="10">
+                            <DockPanel>
+                                <!-- Left Badge & Title -->
+                                <StackPanel Orientation="Horizontal" Spacing="10" DockPanel.Dock="Left" VerticalAlignment="Center">
+                                    <Border Background="#1A2035" CornerRadius="8" Padding="8,4">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="●" FontSize="12" Foreground="#38BDF8" />
+                                            <TextBlock Text="ФОРЕНЗИКА" FontSize="11" FontWeight="ExtraBold" Foreground="#38BDF8" FontFamily="Consolas, monospace" />
+                                        </StackPanel>
+                                    </Border>
+                                    <TextBlock Text="Автоматический форензик-сбор сетевого дампа PCAP (5 минут)" FontSize="13" FontWeight="Bold" Foreground="White" />
+                                </StackPanel>
+
+                                <!-- Right PCAP Controls -->
+                                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                                    <Button Command="{Binding OpenPcapFolderCommand}"
+                                            Classes="segment-btn" Padding="10,5">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <PathIcon Data="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" Width="12" Height="12" Foreground="#38BDF8" />
+                                            <TextBlock Text="Папка PCAP" FontSize="11" Foreground="#38BDF8" FontWeight="SemiBold" />
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button IsVisible="{Binding IsPcapCapturing}"
+                                            Command="{Binding StopPcapCaptureCommand}"
+                                            Classes="segment-btn" Padding="10,5">
+                                        <TextBlock Text="Остановить" FontSize="11" Foreground="#F87171" FontWeight="SemiBold" />
+                                    </Button>
+                                </StackPanel>
+                            </DockPanel>
+
+                            <!-- Details Row -->
+                            <Border Background="#050711" CornerRadius="8" Padding="12,8">
+                                <DockPanel>
+                                    <StackPanel DockPanel.Dock="Left" Spacing="2">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="Причина сбора:" FontSize="10.5" Foreground="#64748B" />
+                                            <TextBlock Text="{Binding PcapReasonDisplay}" FontSize="10.5" FontWeight="SemiBold" Foreground="#FBBF24" TextTrimming="CharacterEllipsis" MaxWidth="520" />
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding PcapFilePath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                            <TextBlock Text="Файл дампа:" FontSize="10.5" Foreground="#64748B" />
+                                            <TextBlock Text="{Binding PcapFilePath}" FontSize="10" Foreground="#94A3B8" FontFamily="Consolas, monospace" TextTrimming="CharacterEllipsis" MaxWidth="520" />
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <Border IsVisible="{Binding IsPcapCapturing}"
+                                            Background="#450A0A" BorderBrush="#F87171" BorderThickness="1" CornerRadius="8" Padding="10,4" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="Осталось:" FontSize="11" Foreground="#FCA5A5" />
+                                            <TextBlock Text="{Binding PcapRemainingDisplay}" FontSize="12" FontWeight="ExtraBold" Foreground="#F87171" FontFamily="Consolas, monospace" />
+                                        </StackPanel>
+                                    </Border>
+                                </DockPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 7.2 Blocked Apps List / Empty State -->
+                    <Border IsVisible="{Binding !BlockedAppsCount}"
+                            Classes="glass-card" Padding="36" HorizontalAlignment="Stretch">
+                        <StackPanel Spacing="10" HorizontalAlignment="Center">
+                            <PathIcon Data="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" Width="36" Height="36" Foreground="#34D399" HorizontalAlignment="Center" />
+                            <TextBlock Text="Нет заблокированных приложений" FontSize="14" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" />
+                            <TextBlock Text="Все приложения и фоновые процессы имеют штатный доступ к сети согласно Zero Trust политикам" FontSize="11" Foreground="#64748B" HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+
+                    <ItemsControl ItemsSource="{Binding BlockedApps}" x:CompileBindings="False">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Classes="glass-card" Margin="0,0,0,8" Padding="16,12">
+                                    <DockPanel>
+                                        <!-- Right Unblock Button -->
+                                        <Button Command="{Binding #Root.DataContext.UnblockAppCommand}"
+                                                CommandParameter="{Binding}"
+                                                DockPanel.Dock="Right"
+                                                VerticalAlignment="Center"
+                                                Margin="14,0,0,0"
+                                                Padding="14,6"
+                                                CornerRadius="8"
+                                                Background="#1E293B"
+                                                BorderBrush="#334155"
+                                                BorderThickness="1">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <PathIcon Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z" Width="10" Height="10" Foreground="#38BDF8" />
+                                                <TextBlock Text="Разблокировать" FontSize="11" FontWeight="Bold" Foreground="#38BDF8" />
+                                            </StackPanel>
+                                        </Button>
+
+                                        <!-- Left Ban Icon -->
+                                        <Border Background="#450A0A" BorderBrush="#F87171" BorderThickness="1" CornerRadius="8" Padding="8,6" DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,14,0">
+                                            <PathIcon Data="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z" Width="14" Height="14" Foreground="#F87171" />
+                                        </Border>
+
+                                        <!-- Center Info -->
+                                        <StackPanel Spacing="3" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                                <TextBlock Text="{Binding ProcessName}" FontSize="13.5" FontWeight="Bold" Foreground="White" FontFamily="Consolas, monospace" />
+                                                <Border Background="#230E12" BorderBrush="#5B161B" BorderThickness="1" CornerRadius="6" Padding="6,2">
+                                                    <TextBlock Text="{Binding TimeFormatted, StringFormat='Изолирован в {0}'}" FontSize="10" Foreground="#FCA5A5" FontFamily="Consolas, monospace" />
+                                                </Border>
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding Reason}" FontSize="11" Foreground="#94A3B8" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- 8. ADD CUSTOM PORT MODAL OVERLAY -->
+        <Border IsVisible="{Binding IsAddPortDialogOpen}"
+                Background="#CC050711" ZIndex="100">
+            <Border Background="#0C1022" BorderBrush="#253050" BorderThickness="1" CornerRadius="16"
+                    Padding="24" Width="440" VerticalAlignment="Center" HorizontalAlignment="Center">
+                <StackPanel Spacing="16">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <PathIcon Data="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" Width="18" Height="18" Foreground="#38BDF8" VerticalAlignment="Center" />
+                        <TextBlock Text="Добавить чувствительный порт" FontSize="16" FontWeight="Bold" Foreground="White" />
+                    </StackPanel>
+
+                    <TextBlock Text="Укажите сетевой порт для блокировки входящих и подозрительных обращений PortShield:"
+                               FontSize="11.5" Foreground="#64748B" TextWrapping="Wrap" />
+
+                    <!-- Port Number & Protocol Row -->
+                    <Grid ColumnDefinitions="2*,12,*">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Text="Номер порта (1-65535)" FontSize="11" Foreground="#94A3B8" />
+                            <TextBox Text="{Binding NewPortNumberText, Mode=TwoWay}" Watermark="например: 8080" Padding="10,6" CornerRadius="8" Background="#080C1A" BorderBrush="#1E293B" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2" Spacing="4">
+                            <TextBlock Text="Протокол" FontSize="11" Foreground="#94A3B8" />
+                            <ComboBox SelectedValue="{Binding NewPortProtocol, Mode=TwoWay}"
+                                      SelectedValueBinding="{Binding Content}"
+                                      HorizontalAlignment="Stretch" Background="#080C1A" BorderBrush="#1E293B" CornerRadius="8">
+                                <ComboBoxItem Content="TCP" />
+                                <ComboBoxItem Content="UDP" />
+                            </ComboBox>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Service Name -->
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Название службы / сервиса" FontSize="11" Foreground="#94A3B8" />
+                        <TextBox Text="{Binding NewPortName, Mode=TwoWay}" Watermark="например: Custom Database Port" Padding="10,6" CornerRadius="8" Background="#080C1A" BorderBrush="#1E293B" />
+                    </StackPanel>
+
+                    <!-- Threat Risk / Description -->
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Описание риска / Угроза" FontSize="11" Foreground="#94A3B8" />
+                        <TextBox Text="{Binding NewPortRisk, Mode=TwoWay}" Watermark="например: Незащищенный порт базы данных" Padding="10,6" CornerRadius="8" Background="#080C1A" BorderBrush="#1E293B" />
+                    </StackPanel>
+
+                    <!-- Severity Level -->
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Уровень критичности" FontSize="11" Foreground="#94A3B8" />
+                        <ComboBox SelectedValue="{Binding NewPortSeverity, Mode=TwoWay}"
+                                  SelectedValueBinding="{Binding Content}"
+                                  HorizontalAlignment="Stretch" Background="#080C1A" BorderBrush="#1E293B" CornerRadius="8">
+                            <ComboBoxItem Content="critical" />
+                            <ComboBoxItem Content="high" />
+                            <ComboBoxItem Content="medium" />
+                        </ComboBox>
+                    </StackPanel>
+
+                    <!-- Error Message -->
+                    <TextBlock IsVisible="{Binding AddPortErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                               Text="{Binding AddPortErrorMessage}" FontSize="11" Foreground="#F87171" FontWeight="Bold" />
+
+                    <!-- Buttons -->
+                    <DockPanel Margin="0,8,0,0">
+                        <Button Command="{Binding CloseAddPortDialogCommand}"
+                                Content="Отмена" Padding="14,8" CornerRadius="8" Background="#1E2638" Foreground="#CBD5E1" DockPanel.Dock="Left" />
+                        <Button Command="{Binding SaveNewPortCommand}"
+                                Content="Добавить" Classes="accent-glow" Padding="18,8" CornerRadius="8" Foreground="White" HorizontalAlignment="Right" />
+                    </DockPanel>
+                </StackPanel>
+            </Border>
+        </Border>
+    </Grid>
+</UserControl>

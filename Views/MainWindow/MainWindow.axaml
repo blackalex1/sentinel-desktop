@@ -1,0 +1,23 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:SentinelDesktop.ViewModels"
+        xmlns:sidebar="using:SentinelDesktop.Views.Sidebar"
+        x:Class="SentinelDesktop.Views.MainWindow.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="Sentinel Secure Desktop"
+        Width="1100" Height="740"
+        MinWidth="960" MinHeight="640"
+        WindowStartupLocation="CenterScreen"
+        Background="#070913"
+        ExtendClientAreaToDecorationsHint="True">
+
+    <Grid ColumnDefinitions="260,*">
+        <!-- 1. MODULAR SIDEBAR NAVIGATION -->
+        <sidebar:SidebarView Grid.Column="0" DataContext="{Binding}" />
+
+        <!-- 2. MAIN CONTENT VIEW HOST -->
+        <Border Grid.Column="1" Padding="0,32,0,0">
+            <TransitioningContentControl Content="{Binding CurrentPage}" />
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,182 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SentinelDesktop.ViewModels"
+             xmlns:models="using:SentinelDesktop.Models"
+             x:Class="SentinelDesktop.Views.CoreManager.CoreManagerView"
+             x:DataType="vm:CoreManagerViewModel"
+             x:Name="Root">
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="20" Margin="32,24,32,28">
+            
+            <!-- 1. TOOLBAR HEADER -->
+            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
+                <!-- Left Info -->
+                <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,16,0">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <TextBlock Text="Управление и обновление ядер" FontSize="22" FontWeight="ExtraBold" Foreground="White" />
+                        <Border Background="#1E1B4B" BorderBrush="#8B5CF6" BorderThickness="1" CornerRadius="10" Padding="8,2" VerticalAlignment="Center">
+                            <TextBlock Text="GitHub Sync" FontSize="11" FontWeight="Bold" Foreground="#D8B4FE" FontFamily="Consolas, monospace" />
+                        </Border>
+                    </StackPanel>
+                    <TextBlock Text="Выбор, скачивание и обновление релизных и beta-сборок исполняемых ядер с GitHub" FontSize="12" Foreground="#64748B" TextWrapping="Wrap" />
+                </StackPanel>
+
+                <!-- Right Action Buttons & Pre-Release Switch -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <!-- Pre-Release Checkbox -->
+                    <CheckBox IsChecked="{Binding IncludePrereleases, Mode=TwoWay}"
+                              VerticalAlignment="Center" Margin="0,0,4,0">
+                        <TextBlock Text="Включая Pre-Release / Beta" FontSize="11" FontWeight="SemiBold" Foreground="#CBD5E1" />
+                    </CheckBox>
+
+                    <!-- Open Binaries Folder -->
+                    <Button Command="{Binding OpenBinariesFolderCommand}"
+                            Padding="11,7" CornerRadius="8" Background="#141A30" BorderBrush="#253050" BorderThickness="1" Cursor="Hand" ToolTip.Tip="Открыть папку binaries в Проводнике">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <PathIcon Data="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z" Width="11" Height="11" Foreground="#38BDF8" />
+                            <TextBlock Text="Папка binaries" FontSize="11" FontWeight="SemiBold" Foreground="#38BDF8" />
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Refresh Releases List -->
+                    <Button Command="{Binding RefreshAllCommand}"
+                            Classes="accent-glow" Padding="12,7" CornerRadius="8">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <PathIcon Data="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0020 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 004 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" Width="11" Height="11" Foreground="White" />
+                            <TextBlock Text="Обновить списки" FontSize="11" FontWeight="Bold" Foreground="White" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <!-- 1.5 LOG LEVEL SETTINGS CARD -->
+            <Border Classes="glass-card" Padding="20,16">
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="0" Spacing="4">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <PathIcon Data="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" Width="14" Height="14" Foreground="#38BDF8" />
+                            <TextBlock Text="Уровень детализации логов ядра" FontSize="14" FontWeight="Bold" Foreground="White" />
+                        </StackPanel>
+                        <TextBlock Text="Определяет подробность вывода для ядра Sing-box (trace / debug / info / warn / error)" FontSize="11" Foreground="#64748B" />
+                    </StackPanel>
+
+                    <ComboBox Grid.Column="1"
+                              ItemsSource="{Binding AvailableLogLevels}"
+                              SelectedItem="{Binding SelectedLogLevel, Mode=TwoWay}"
+                              Width="260"
+                              Height="36"
+                              CornerRadius="8"
+                              Background="#080C1A"
+                              BorderBrush="#253050"
+                              VerticalAlignment="Center"
+                              FontSize="12">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:LogLevelOption">
+                                <StackPanel Spacing="1">
+                                    <TextBlock Text="{Binding DisplayName}" FontSize="12" FontWeight="SemiBold" Foreground="White" />
+                                    <TextBlock Text="{Binding Description}" FontSize="9" Foreground="#94A3B8" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </Grid>
+            </Border>
+
+            <!-- 2. CORE CARDS -->
+            <ItemsControl ItemsSource="{Binding Cards}" x:CompileBindings="False">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Classes="glass-card" Margin="0,0,0,16" Padding="20,18">
+                            <StackPanel Spacing="14">
+                                
+                                <!-- Header Row: Title, Subtitle, Installed Version Badge -->
+                                <DockPanel>
+                                    <!-- Right: Installed Version Badge -->
+                                    <Border DockPanel.Dock="Right"
+                                            Background="#0C1D24" BorderBrush="{Binding AccentColor}" BorderThickness="1"
+                                            CornerRadius="8" Padding="10,4" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding InstalledVersion, StringFormat='Текущая: {0}'}"
+                                                   FontSize="11" FontWeight="Bold" Foreground="{Binding AccentColor}" FontFamily="Consolas, monospace" />
+                                    </Border>
+
+                                    <!-- Left: Core Title and Subtitle -->
+                                    <StackPanel Spacing="3">
+                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                            <TextBlock Text="{Binding DisplayName}" FontSize="16" FontWeight="ExtraBold" Foreground="White" />
+                                            <Border Background="#1E2638" CornerRadius="4" Padding="6,1" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Subtitle}" FontSize="10" FontWeight="SemiBold" Foreground="#94A3B8" />
+                                            </Border>
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding Description}" FontSize="11" Foreground="#64748B" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </DockPanel>
+
+                                <!-- Version Selector & Download Action Row -->
+                                <Grid ColumnDefinitions="*,16,Auto">
+                                    
+                                    <!-- Dropdown ComboBox with GitHub Releases -->
+                                    <ComboBox Grid.Column="0"
+                                              ItemsSource="{Binding AvailableReleases}"
+                                              SelectedItem="{Binding SelectedRelease, Mode=TwoWay}"
+                                              HorizontalAlignment="Stretch"
+                                              Background="#080C1A"
+                                              BorderBrush="#253050"
+                                              CornerRadius="10"
+                                              Padding="12,8"
+                                              PlaceholderText="Выберите версию для загрузки...">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <DockPanel Margin="0,2,0,2">
+                                                    <!-- Stable / Pre-Release Badge -->
+                                                    <Border Background="{Binding ReleaseTypeBg}" CornerRadius="4" Padding="6,1" Margin="0,0,8,0" DockPanel.Dock="Left" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding ReleaseTypeBadge}" FontSize="9" FontWeight="Bold" Foreground="{Binding ReleaseTypeColor}" FontFamily="Consolas, monospace" />
+                                                    </Border>
+                                                    <!-- Tag Name -->
+                                                    <TextBlock Text="{Binding TagName}" FontSize="12" FontWeight="Bold" Foreground="White" FontFamily="Consolas, monospace" VerticalAlignment="Center" Margin="0,0,10,0" DockPanel.Dock="Left" />
+                                                    <!-- Published Date -->
+                                                    <TextBlock Text="{Binding PublishedDateFormatted, StringFormat='({0})'}" FontSize="10" Foreground="#64748B" VerticalAlignment="Center" />
+                                                </DockPanel>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+
+                                    <!-- Download & Install Button -->
+                                    <Button Grid.Column="2"
+                                            Command="{Binding DownloadSelectedCommand}"
+                                            IsEnabled="{Binding CanDownload}"
+                                            Background="{Binding InstallButtonBg}"
+                                            BorderBrush="{Binding InstallButtonBorder}"
+                                            BorderThickness="1"
+                                            Padding="18,10"
+                                            CornerRadius="10"
+                                            VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <PathIcon Data="{Binding InstallButtonIcon}" Width="13" Height="13" Foreground="{Binding InstallButtonForeground}" />
+                                            <TextBlock Text="{Binding InstallButtonText}" FontSize="12" FontWeight="Bold" Foreground="{Binding InstallButtonForeground}" />
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+
+                                <!-- Inline Download Progress Bar (When Downloading) -->
+                                <Border IsVisible="{Binding IsDownloading}"
+                                        Background="#090D1C" BorderBrush="#0284C7" BorderThickness="1"
+                                        CornerRadius="10" Padding="14,10">
+                                    <StackPanel Spacing="6">
+                                        <DockPanel>
+                                            <TextBlock Text="{Binding DownloadStatus}" FontSize="11" FontWeight="Bold" Foreground="#38BDF8" FontFamily="Consolas, monospace" DockPanel.Dock="Left" />
+                                            <TextBlock Text="{Binding DownloadPercentDisplay}" FontSize="11" FontWeight="Bold" Foreground="White" FontFamily="Consolas, monospace" HorizontalAlignment="Right" />
+                                        </DockPanel>
+                                        <ProgressBar Value="{Binding DownloadProgress}" Minimum="0" Maximum="1" Height="6" CornerRadius="3" Foreground="#38BDF8" Background="#1E2638" />
+                                    </StackPanel>
+                                </Border>
+
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

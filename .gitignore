@@ -19,6 +19,10 @@ src-tauri/binaries/
 *.pem
 *.key
 *.log
+*.pcap
+data/pcaps/
+publish_out/
+tests/real_batch_*
 *.sqlite
 *.db
 *.sub
@@ -36,7 +40,7 @@ Thumbs.db
 .packages
 .pub-cache/
 .pub/
-build/
-old/
-mascot/
-
+bin/
+obj/
+publish_out/
+dist/

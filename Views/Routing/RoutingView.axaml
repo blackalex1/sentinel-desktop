@@ -1,0 +1,348 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SentinelDesktop.ViewModels"
+             xmlns:models="using:SentinelDesktop.Models"
+             x:Class="SentinelDesktop.Views.Routing.RoutingView"
+             x:DataType="vm:RoutingViewModel"
+             x:Name="Root">
+
+    <UserControl.Styles>
+        <Style Selector="Border.table-row">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="#0E1726" />
+        </Style>
+        <Style Selector="Border.table-row:pointerover">
+            <Setter Property="Background" Value="#0A0E22" />
+        </Style>
+        <Style Selector="Border.table-row.dragover">
+            <Setter Property="Background" Value="#1E1B4B" />
+            <Setter Property="BorderBrush" Value="#8B5CF6" />
+            <Setter Property="BorderThickness" Value="0,2,0,1" />
+        </Style>
+        <Style Selector="Border.table-row.dragging">
+            <Setter Property="Opacity" Value="0.3" />
+            <Setter Property="Background" Value="#0F172A" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid>
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="24" Margin="32,24,32,28">
+                
+                <!-- ========================================================================= -->
+                <!-- SECTION 1: QUICK SECURITY RULES (Быстрые правила безопасности)            -->
+                <!-- ========================================================================= -->
+                <Border Classes="glass-card" Padding="22">
+                    <StackPanel Spacing="16">
+                        <!-- Section Header -->
+                        <StackPanel Spacing="4">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <PathIcon Data="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z" Width="16" Height="16" Foreground="#C084FC" VerticalAlignment="Center" />
+                                <TextBlock Text="Быстрые правила безопасности" FontSize="16" FontWeight="Bold" Foreground="White" />
+                            </StackPanel>
+                            <TextBlock Text="Включение этих правил позволяет перенаправлять или блокировать соответствующие категории сайтов и трафика в выбранные выходящие подключения (BLOCKED, DIRECT или VPN)."
+                                       FontSize="11.5" Foreground="#64748B" TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <!-- Presets 4-Column Responsive Grid View -->
+                        <ItemsControl ItemsSource="{Binding Presets}" x:CompileBindings="False">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Columns="4" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="#090D1C" BorderBrush="#1E2638" BorderThickness="1"
+                                            CornerRadius="12" Padding="14,12" Margin="5" MinHeight="136">
+                                        <DockPanel LastChildFill="True">
+                                            <!-- Top Row: Name and Switch -->
+                                            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,4">
+                                                <ToggleSwitch DockPanel.Dock="Right"
+                                                              IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                                              Command="{Binding #Root.DataContext.TogglePresetCommand}"
+                                                              CommandParameter="{Binding}"
+                                                              OnContent="" OffContent=""
+                                                              HorizontalAlignment="Right" Margin="0,-4,-4,-4" />
+                                                <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="Bold" Foreground="White"
+                                                           TextWrapping="Wrap" MaxLines="2" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                            </DockPanel>
+
+                                            <!-- Middle Description -->
+                                            <TextBlock Text="{Binding Description}" FontSize="10.5" Foreground="#64748B" TextWrapping="Wrap" MaxLines="2" VerticalAlignment="Center" DockPanel.Dock="Top" Margin="0,2,0,0" />
+
+                                            <!-- Bottom Row: Outbound Dropdown with colored MenuFlyout -->
+                                            <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+                                                <TextBlock Text="Выходной маршрут" FontSize="10" Foreground="#64748B" VerticalAlignment="Center" DockPanel.Dock="Left" />
+                                                
+                                                <!-- Pill Route Dropdown Button with MenuFlyout -->
+                                                <Button Background="{Binding TargetBg}"
+                                                        BorderBrush="{Binding TargetColor}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="6"
+                                                        Padding="8,2"
+                                                        MinWidth="66"
+                                                        HorizontalAlignment="Right"
+                                                        HorizontalContentAlignment="Center"
+                                                        VerticalAlignment="Center"
+                                                        Cursor="Hand">
+                                                    <Button.Flyout>
+                                                        <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                                            <MenuItem Header="DIRECT" Command="{Binding SetTargetCommand}" CommandParameter="direct" Foreground="#34D399" FontWeight="Bold" />
+                                                            <MenuItem Header="VPN" Command="{Binding SetTargetCommand}" CommandParameter="proxy" Foreground="#C084FC" FontWeight="Bold" />
+                                                            <MenuItem Header="BLOCK" Command="{Binding SetTargetCommand}" CommandParameter="block" Foreground="#F87171" FontWeight="Bold" />
+                                                        </MenuFlyout>
+                                                    </Button.Flyout>
+                                                    <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding TargetDisplayName}" FontSize="10" FontWeight="Bold" Foreground="{Binding TargetColor}" VerticalAlignment="Center" FontFamily="Consolas, monospace" />
+                                                        <PathIcon Data="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z" Width="7" Height="7" Foreground="{Binding TargetColor}" VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                </Button>
+                                            </DockPanel>
+
+                                            <!-- Thin Separator -->
+                                            <Border Height="1" Background="#14FFFFFF" Margin="0,6,0,0" DockPanel.Dock="Bottom" />
+                                        </DockPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Bottom Save Button -->
+                        <DockPanel>
+                            <Button Command="{Binding SaveRoutingCommand}"
+                                    Classes="accent-glow" Padding="16,8" CornerRadius="10" HorizontalAlignment="Right">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <PathIcon Data="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z" Width="12" Height="12" Foreground="White" />
+                                    <TextBlock Text="Сохранить правила" FontSize="11.5" FontWeight="Bold" Foreground="White" />
+                                </StackPanel>
+                            </Button>
+                        </DockPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- ========================================================================= -->
+                <!-- SECTION 2: ROUTING TABLE (Правила маршрутизации)                          -->
+                <!-- ========================================================================= -->
+                <Border Classes="glass-card" Padding="22">
+                    <StackPanel Spacing="16">
+                        <!-- Table Header Toolbar -->
+                        <Grid ColumnDefinitions="*,Auto">
+                            <!-- Left Title -->
+                            <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,16,0">
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <PathIcon Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" Width="16" Height="16" Foreground="#C084FC" VerticalAlignment="Center" />
+                                    <TextBlock Text="Правила маршрутизации" FontSize="16" FontWeight="Bold" Foreground="White" />
+                                </StackPanel>
+                                <TextBlock Text="Правила проверяются сверху вниз. Вы можете менять порядок (приоритет) правил перетаскиванием (Drag &amp; Drop) или стрелками."
+                                           FontSize="11.5" Foreground="#64748B" TextWrapping="Wrap" />
+                            </StackPanel>
+
+                            <!-- Right Actions: Export, Import, Add -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <!-- Export -->
+                                <Button Command="{Binding ExportPresetCommand}"
+                                        Padding="10,6" CornerRadius="8" Background="#141A30" BorderBrush="#253050" BorderThickness="1" Cursor="Hand" ToolTip.Tip="Экспорт правил в буфер">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <PathIcon Data="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" Width="11" Height="11" Foreground="#94A3B8" />
+                                        <TextBlock Text="Экспорт пресета" FontSize="11" FontWeight="SemiBold" Foreground="#94A3B8" />
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Import -->
+                                <Button Command="{Binding ImportPresetCommand}"
+                                        Padding="10,6" CornerRadius="8" Background="#141A30" BorderBrush="#253050" BorderThickness="1" Cursor="Hand" ToolTip.Tip="Импорт правил из буфера">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <PathIcon Data="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z" Width="11" Height="11" Foreground="#38BDF8" />
+                                        <TextBlock Text="Импорт пресета" FontSize="11" FontWeight="SemiBold" Foreground="#38BDF8" />
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Add Rule -->
+                                <Button Command="{Binding AddNewRuleCommand}"
+                                        Classes="accent-glow" Padding="14,6" CornerRadius="8">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <PathIcon Data="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" Width="12" Height="12" Foreground="White" />
+                                        <TextBlock Text="Добавить правило" FontSize="11" FontWeight="Bold" Foreground="White" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Unified Glass Table Structure with Drag-and-Drop -->
+                        <Border Background="#060914" BorderBrush="#1E2638" BorderThickness="1" CornerRadius="12" ClipToBounds="True">
+                            <StackPanel>
+                                <!-- Table Header Row -->
+                                <Border Background="#03060E" BorderBrush="#161F32" BorderThickness="0,0,0,1" Padding="16,10">
+                                    <Grid ColumnDefinitions="60,2*,2*,120,70,110">
+                                        <TextBlock Grid.Column="0" Text="ПОРЯДОК" FontSize="10" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" />
+                                        <TextBlock Grid.Column="1" Text="ОПИСАНИЕ" FontSize="10" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" />
+                                        <TextBlock Grid.Column="2" Text="УСЛОВИЯ" FontSize="10" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" />
+                                        <TextBlock Grid.Column="3" Text="НАЗНАЧЕНИЕ" FontSize="10" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" HorizontalAlignment="Center" />
+                                        <TextBlock Grid.Column="4" Text="СТАТУС" FontSize="10" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" HorizontalAlignment="Center" />
+                                        <TextBlock Grid.Column="5" Text="ДЕЙСТВИЯ" FontSize="10" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" HorizontalAlignment="Right" />
+                                    </Grid>
+                                </Border>
+
+                                <!-- Table Rows -->
+                                <ItemsControl ItemsSource="{Binding TableRules}" x:CompileBindings="False">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border DragDrop.AllowDrop="True"
+                                                    Classes="table-row"
+                                                    Classes.dragover="{Binding IsDragOver}"
+                                                    Classes.dragging="{Binding IsDragging}"
+                                                    BorderThickness="0,0,0,1" Padding="16,10"
+                                                    Opacity="{Binding RowOpacity}">
+                                                <Border.Transitions>
+                                                    <Transitions>
+                                                        <BrushTransition Property="Background" Duration="0:0:0.18" />
+                                                        <BrushTransition Property="BorderBrush" Duration="0:0:0.18" />
+                                                        <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
+                                                    </Transitions>
+                                                </Border.Transitions>
+                                                <Grid ColumnDefinitions="60,2*,2*,120,70,110" VerticalAlignment="Center">
+                                                    
+                                                    <!-- Wide Drag Hit Area (covers Columns 0, 1, and 2 for effortless dragging without aiming) -->
+                                                    <Grid Grid.Column="0" Grid.ColumnSpan="3" ColumnDefinitions="60,2*,2*"
+                                                          Background="Transparent"
+                                                          Cursor="SizeAll"
+                                                          PointerPressed="OnDragHandlePointerPressed"
+                                                          PointerMoved="OnDragHandlePointerMoved"
+                                                          PointerReleased="OnDragHandlePointerReleased"
+                                                          VerticalAlignment="Stretch">
+                                                        
+                                                        <!-- 1. Порядок (Drag Pill + Order Index) -->
+                                                        <Border Grid.Column="0" Background="#0C1426" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="6" Padding="6,3" Margin="0,0,8,0" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                            <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                                                                <PathIcon Data="M3 15h18v-2H3v2zm0 4h18v-2H3v2zm0-8h18V9H3v2zm0-6v2h18V5H3z" Width="10" Height="10" Foreground="#38BDF8" VerticalAlignment="Center" />
+                                                                <TextBlock Text="{Binding Order, StringFormat='#{0}'}" FontSize="11" FontWeight="Bold" Foreground="#94A3B8" FontFamily="Consolas, monospace" VerticalAlignment="Center" />
+                                                            </StackPanel>
+                                                        </Border>
+
+                                                        <!-- 2. Описание (Name) -->
+                                                        <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="12.5" FontWeight="SemiBold" Foreground="{Binding RowTextColor}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,10,0" />
+
+                                                        <!-- 3. Условия (Conditions) -->
+                                                        <TextBlock Grid.Column="2" Text="{Binding ConditionsText}" FontSize="11" Foreground="{Binding ConditionsColor}" FontFamily="Consolas, monospace" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,10,0" />
+                                                    </Grid>
+
+                                                    <!-- 4. Назначение (Target Badge) -->
+                                                    <Border Grid.Column="3"
+                                                            Background="{Binding TargetBg}" BorderBrush="{Binding TargetColor}" BorderThickness="1"
+                                                            CornerRadius="6" Padding="8,2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding TargetDisplayName}" FontSize="10" FontWeight="Bold" Foreground="{Binding TargetColor}" FontFamily="Consolas, monospace" />
+                                                    </Border>
+
+                                                    <!-- 5. Статус (Toggle Switch) -->
+                                                    <ToggleSwitch Grid.Column="4"
+                                                                  IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                                                  Command="{Binding #Root.DataContext.ToggleTableRowCommand}"
+                                                                  CommandParameter="{Binding}"
+                                                                  OnContent="" OffContent=""
+                                                                  HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-4,0,-4" />
+
+                                                    <!-- 6. Действия (Up, Down, Edit, Delete) -->
+                                                    <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                        <!-- Move Up -->
+                                                        <Button Command="{Binding #Root.DataContext.MoveTableRowUpCommand}" CommandParameter="{Binding}"
+                                                                Padding="5" CornerRadius="5" Background="#10162A" BorderBrush="#1E293B" BorderThickness="1">
+                                                            <PathIcon Data="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z" Width="9" Height="9" Foreground="#94A3B8" />
+                                                        </Button>
+
+                                                        <!-- Move Down -->
+                                                        <Button Command="{Binding #Root.DataContext.MoveTableRowDownCommand}" CommandParameter="{Binding}"
+                                                                Padding="5" CornerRadius="5" Background="#10162A" BorderBrush="#1E293B" BorderThickness="1">
+                                                            <PathIcon Data="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z" Width="9" Height="9" Foreground="#94A3B8" />
+                                                        </Button>
+
+                                                        <!-- Edit -->
+                                                        <Button Command="{Binding #Root.DataContext.EditTableRowCommand}" CommandParameter="{Binding}"
+                                                                Padding="5" CornerRadius="5" Background="#10162A" BorderBrush="#1E293B" BorderThickness="1">
+                                                            <PathIcon Data="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" Width="9" Height="9" Foreground="#38BDF8" />
+                                                        </Button>
+
+                                                        <!-- Delete -->
+                                                        <Button Command="{Binding #Root.DataContext.DeleteTableRowCommand}" CommandParameter="{Binding}"
+                                                                Padding="5" CornerRadius="5" Background="#230E12" BorderBrush="#5B161B" BorderThickness="1">
+                                                            <PathIcon Data="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" Width="9" Height="9" Foreground="#F87171" />
+                                                        </Button>
+                                                    </StackPanel>
+
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- ========================================================================= -->
+        <!-- RULE EDITOR MODAL OVERLAY                                                 -->
+        <!-- ========================================================================= -->
+        <Border IsVisible="{Binding IsRuleEditorOpen}"
+                Background="#CC050711" ZIndex="100">
+            <Border Background="#0C1022" BorderBrush="#253050" BorderThickness="1" CornerRadius="16"
+                    Padding="24" Width="460" VerticalAlignment="Center" HorizontalAlignment="Center">
+                <StackPanel Spacing="16">
+                    <TextBlock Text="Редактор правила маршрутизации" FontSize="16" FontWeight="Bold" Foreground="White" />
+
+                    <!-- Rule Name -->
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Название правила" FontSize="11" Foreground="#94A3B8" />
+                        <TextBox Text="{Binding FormRuleName, Mode=TwoWay}" Padding="10,6" CornerRadius="8" Background="#080C1A" BorderBrush="#1E293B" />
+                    </StackPanel>
+
+                    <!-- Target Action -->
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Действие маршрутизации (Action)" FontSize="11" Foreground="#94A3B8" />
+                        <ComboBox SelectedValue="{Binding FormRuleAction, Mode=TwoWay}"
+                                  SelectedValueBinding="{Binding Content}"
+                                  HorizontalAlignment="Stretch" Background="#080C1A" BorderBrush="#1E293B" CornerRadius="8">
+                            <ComboBoxItem Content="direct" />
+                            <ComboBoxItem Content="proxy" />
+                            <ComboBoxItem Content="block" />
+                        </ComboBox>
+                    </StackPanel>
+
+                    <!-- Domains -->
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Домены / GeoSite (через запятую)" FontSize="11" Foreground="#94A3B8" />
+                        <TextBox Text="{Binding FormDomainsText, Mode=TwoWay}" Watermark="например: geosite:google, youtube.com" Padding="10,6" CornerRadius="8" Background="#080C1A" BorderBrush="#1E293B" />
+                    </StackPanel>
+
+                    <!-- IPs -->
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="IP-адреса / GeoIP (через запятую)" FontSize="11" Foreground="#94A3B8" />
+                        <TextBox Text="{Binding FormIpsText, Mode=TwoWay}" Watermark="например: geoip:ru, 1.1.1.1/32" Padding="10,6" CornerRadius="8" Background="#080C1A" BorderBrush="#1E293B" />
+                    </StackPanel>
+
+                    <!-- Ports -->
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Порты (через запятую)" FontSize="11" Foreground="#94A3B8" />
+                        <TextBox Text="{Binding FormPortsText, Mode=TwoWay}" Watermark="например: 80, 443, 8080" Padding="10,6" CornerRadius="8" Background="#080C1A" BorderBrush="#1E293B" />
+                    </StackPanel>
+
+                    <!-- Protocols -->
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Сетевые протоколы (через запятую)" FontSize="11" Foreground="#94A3B8" />
+                        <TextBox Text="{Binding FormProtocolsText, Mode=TwoWay}" Watermark="например: bittorrent, quic" Padding="10,6" CornerRadius="8" Background="#080C1A" BorderBrush="#1E293B" />
+                    </StackPanel>
+
+                    <!-- Buttons -->
+                    <DockPanel Margin="0,8,0,0">
+                        <Button Command="{Binding CloseRuleEditorCommand}"
+                                Content="Отмена" Padding="14,8" CornerRadius="8" Background="#1E2638" Foreground="#CBD5E1" DockPanel.Dock="Left" />
+                        <Button Command="{Binding SaveRuleEditorCommand}"
+                                Content="Сохранить" Classes="accent-glow" Padding="18,8" CornerRadius="8" Foreground="White" HorizontalAlignment="Right" />
+                    </DockPanel>
+                </StackPanel>
+            </Border>
+        </Border>
+    </Grid>
+</UserControl>

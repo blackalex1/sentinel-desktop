@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Background Gradient -->
+    <radialGradient id="bgGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#141226"/>
+      <stop offset="70%" stop-color="#090a12"/>
+      <stop offset="100%" stop-color="#040508"/>
+    </radialGradient>
+
+    <!-- Glow Gradients -->
+    <linearGradient id="violetCyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a855f7"/>
+      <stop offset="50%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+
+    <linearGradient id="cyanGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+
+    <linearGradient id="violetGlow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#c084fc"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+
+    <!-- Soft Ambient Glow Filter -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- App Icon Squircle Background -->
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#bgGrad)"/>
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
+
+  <!-- Outer Orbiting Tactical Rings (Matching Android & Panel) -->
+  <circle cx="256" cy="256" r="216" fill="none" stroke="#8b5cf6" stroke-width="4" stroke-dasharray="24 16 80 16 12 16" opacity="0.6"/>
+  <circle cx="256" cy="256" r="200" fill="none" stroke="#06b6d4" stroke-width="2.5" stroke-dasharray="60 40 10 40" opacity="0.5"/>
+
+  <!-- 4 Windows Accent Corner Brackets / Orbit Nodes (Windows reference) -->
+  <g opacity="0.8">
+    <rect x="76" y="76" width="16" height="16" rx="4" fill="#06b6d4"/>
+    <rect x="420" y="76" width="16" height="16" rx="4" fill="#8b5cf6"/>
+    <rect x="76" y="420" width="16" height="16" rx="4" fill="#38bdf8"/>
+    <rect x="420" y="420" width="16" height="16" rx="4" fill="#a855f7"/>
+  </g>
+
+  <!-- TOP WINDOWS 4-PANE CYBER CREST (Direct Windows Reference like Android Antennas) -->
+  <g transform="translate(256, 92)" filter="url(#glow)">
+    <!-- Top-Left Tile -->
+    <path d="M -46,-28 L -6,-34 L -6,-8 L -46,-8 Z" fill="#06b6d4" opacity="0.95"/>
+    <!-- Top-Right Tile -->
+    <path d="M 6,-34 L 46,-28 L 46,-8 L 6,-8 Z" fill="#8b5cf6" opacity="0.95"/>
+    <!-- Bottom-Left Tile -->
+    <path d="M -46,-2 L -6,-2 L -6,24 L -46,18 Z" fill="#38bdf8" opacity="0.95"/>
+    <!-- Bottom-Right Tile -->
+    <path d="M 6,-2 L 46,-2 L 46,18 L 6,24 Z" fill="#c084fc" opacity="0.95"/>
+  </g>
+
+  <!-- SENTINEL SHIELD BODY (Identical geometry to Android & Panel) -->
+  <!-- Main Outer Shield Stroke & Dark Carbon Fill -->
+  <path d="M 256 120 
+           C 350 120 370 156 370 210 
+           L 370 295 
+           C 370 360 256 425 256 425 
+           C 256 425 142 360 142 295 
+           L 142 210 
+           C 142 156 162 120 256 120 Z" 
+        fill="#0f101a" 
+        stroke="#8b5cf6" 
+        stroke-width="16" 
+        stroke-linejoin="round"/>
+
+  <!-- Left Cyber Accent Wing (Purple) -->
+  <path d="M 142 210 L 198 250 L 198 325 L 142 295 Z" 
+        fill="#8b5cf6" 
+        opacity="0.35"/>
+
+  <!-- Right Cyber Accent Wing (Cyan) -->
+  <path d="M 370 210 L 314 250 L 314 325 L 370 295 Z" 
+        fill="#06b6d4" 
+        opacity="0.35"/>
+
+  <!-- Internal 4-Quadrant High-Tech Netting Lines (Windows Grid Division) -->
+  <path d="M 256 125 L 256 415" stroke="#38bdf8" stroke-width="2" stroke-dasharray="8 8" opacity="0.3"/>
+  <path d="M 148 260 L 364 260" stroke="#c084fc" stroke-width="2" stroke-dasharray="8 8" opacity="0.3"/>
+
+  <!-- CYBER ROBOT VISOR EYES (Glowing Cyan, matching Android) -->
+  <g filter="url(#glow)">
+    <!-- Left Eye -->
+    <polygon points="182,185 228,185 218,208 192,208" fill="#06b6d4"/>
+    <!-- Right Eye -->
+    <polygon points="284,185 330,185 320,208 294,208" fill="#06b6d4"/>
+  </g>
+
+  <!-- SENTINEL DIAMOND PLASMA CORE (Windows 4-Panes Embedded Core) -->
+  <g filter="url(#glow)">
+    <!-- Outer Diamond (Violet) -->
+    <polygon points="256,220 308,275 256,360 204,275" fill="#8b5cf6"/>
+
+    <!-- Middle Plasma (Sky Blue) -->
+    <polygon points="256,242 286,275 256,332 226,275" fill="#38bdf8"/>
+
+    <!-- Inner Core Windows Cross Partition -->
+    <line x1="256" y1="230" x2="256" y2="350" stroke="#0f101a" stroke-width="3"/>
+    <line x1="210" y1="275" x2="302" y2="275" stroke="#0f101a" stroke-width="3"/>
+
+    <!-- Center White Radiant Spark -->
+    <polygon points="256,262 270,275 256,298 242,275" fill="#ffffff"/>
+    <circle cx="256" cy="275" r="4" fill="#ffffff"/>
+  </g>
+
+  <!-- Top Bevel Highlight Arc -->
+  <path d="M 190 145 C 220 135 292 135 322 145" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="4" stroke-linecap="round"/>
+</svg>
