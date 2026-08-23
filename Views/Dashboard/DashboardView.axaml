@@ -1,0 +1,185 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SentinelDesktop.ViewModels"
+             xmlns:controls="using:SentinelDesktop.Controls"
+             x:Class="SentinelDesktop.Views.Dashboard.DashboardView"
+             x:DataType="vm:DashboardViewModel">
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="22" Margin="32,16,32,28" MaxWidth="880" HorizontalAlignment="Stretch">
+
+            <!-- 1. HERO LIVE ANIMATED MECHA MASCOT COMMAND ARENA -->
+            <Border Classes="glass-card" Padding="28,26" HorizontalAlignment="Stretch">
+                <StackPanel Spacing="16" HorizontalAlignment="Center">
+                    <!-- Interactive 60 FPS Live Mecha Mascot Control -->
+                    <Button Command="{Binding ToggleConnectionCommand}"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Padding="0"
+                            Cursor="Hand"
+                            HorizontalAlignment="Center">
+                        <controls:LiveMascotControl Width="220" Height="220"
+                                                    IsConnected="{Binding IsConnected}"
+                                                    IsConnecting="{Binding IsConnecting}"
+                                                    IsTunMode="{Binding IsTunMode}"
+                                                    IsSystemProxy="{Binding IsSystemProxy}"
+                                                    HorizontalAlignment="Center" />
+                    </Button>
+
+                    <!-- Master Action Trigger Capsule -->
+                    <Button Classes="hero-connect"
+                            Classes.connected="{Binding IsConnected}"
+                            Command="{Binding ToggleConnectionCommand}"
+                            HorizontalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Ellipse Width="8" Height="8" Fill="#38BDF8" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding ConnectButtonText}"
+                                        FontWeight="Bold"
+                                        FontSize="13"
+                                        FontFamily="Consolas, monospace" />
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Session Duration -->
+                    <TextBlock IsVisible="{Binding IsConnected}"
+                               Text="{Binding SessionDuration, StringFormat='Время сессии: {0}'}"
+                               FontSize="12"
+                               Foreground="#94A3B8"
+                               FontFamily="Consolas, monospace"
+                               HorizontalAlignment="Center" />
+                </StackPanel>
+            </Border>
+
+            <!-- 2. SPEED & TELEMETRY BENTO GRID (2 Columns) -->
+            <Grid ColumnDefinitions="*,16,*">
+                <!-- Left: Traffic Rates -->
+                <Border Grid.Column="0" Classes="glass-card">
+                    <StackPanel Spacing="14">
+                        <DockPanel>
+                            <TextBlock Text="СЕТЕВОЙ ТРАФИК" FontWeight="Bold" FontSize="11" Foreground="#CBD5E1" FontFamily="Consolas, monospace" DockPanel.Dock="Left" />
+                            <Border Background="#0C2340" BorderBrush="#0284C7" BorderThickness="1" CornerRadius="10" Padding="8,2" HorizontalAlignment="Right">
+                                <TextBlock Text="● LIVE" Foreground="#38BDF8" FontSize="10" FontWeight="Bold" FontFamily="Consolas, monospace" />
+                            </Border>
+                        </DockPanel>
+
+                        <!-- Speed Meters Row -->
+                        <Grid ColumnDefinitions="*,12,*">
+                            <!-- Download Speed Card -->
+                            <Border Grid.Column="0" Classes="sub-panel">
+                                <StackPanel Spacing="3">
+                                    <TextBlock Text="ВХОД" FontSize="9" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" />
+                                    <TextBlock Text="{Binding DownloadSpeed}" FontSize="16" FontWeight="Bold" Foreground="#38BDF8" FontFamily="Consolas, monospace" />
+                                    <TextBlock Text="{Binding TotalDownload, StringFormat='Всего: {0}'}" FontSize="10" Foreground="#475569" FontFamily="Consolas, monospace" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Upload Speed Card -->
+                            <Border Grid.Column="2" Classes="sub-panel">
+                                <StackPanel Spacing="3">
+                                    <TextBlock Text="ИСХОД" FontSize="9" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" />
+                                    <TextBlock Text="{Binding UploadSpeed}" FontSize="16" FontWeight="Bold" Foreground="#C084FC" FontFamily="Consolas, monospace" />
+                                    <TextBlock Text="{Binding TotalUpload, StringFormat='Всего: {0}'}" FontSize="10" Foreground="#475569" FontFamily="Consolas, monospace" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Right: Node, Mode & Core Engine Switcher -->
+                <Border Grid.Column="2" Classes="glass-card">
+                    <StackPanel Spacing="12">
+                        <DockPanel>
+                            <TextBlock Text="УЗЕЛ &amp; РЕЖИМ" FontWeight="Bold" FontSize="11" Foreground="#CBD5E1" FontFamily="Consolas, monospace" DockPanel.Dock="Left" />
+                            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                                <Border Background="#064E3B" BorderBrush="#10B981" BorderThickness="1" CornerRadius="10" Padding="8,2">
+                                    <TextBlock Text="● DNS OK" Foreground="#34D399" FontSize="10" FontWeight="Bold" FontFamily="Consolas, monospace" />
+                                </Border>
+                                <Button Command="{Binding RefreshIpCommand}" Background="Transparent" Padding="4" Cursor="Hand" ToolTip.Tip="Обновить публичный IP">
+                                    <PathIcon Data="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0020 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 004 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" Width="13" Height="13" Foreground="#38BDF8" />
+                                </Button>
+                            </StackPanel>
+                        </DockPanel>
+
+                        <!-- Node Ping & IP Box -->
+                        <Border Classes="sub-panel">
+                            <DockPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="6" DockPanel.Dock="Left">
+                                    <TextBlock Text="ПИНГ:" FontSize="10" Foreground="#64748B" FontWeight="Bold" VerticalAlignment="Center" FontFamily="Consolas, monospace" />
+                                    <TextBlock Text="{Binding PingDisplay}" FontSize="13" FontWeight="Bold" Foreground="#34D399" VerticalAlignment="Center" FontFamily="Consolas, monospace" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
+                                    <TextBlock Text="{Binding PublicIp}" FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center" FontFamily="Consolas, monospace" />
+                                    <Border Background="#1E2638" CornerRadius="6" Padding="6,2">
+                                        <TextBlock Text="{Binding Country}" FontSize="9" FontWeight="Bold" Foreground="#CBD5E1" FontFamily="Consolas, monospace" />
+                                    </Border>
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- Segmented Mode Control (TUN vs System Proxy) -->
+                        <Grid ColumnDefinitions="*,8,*">
+                            <Button Grid.Column="0"
+                                    Command="{Binding SetModeCommand}"
+                                    CommandParameter="tun"
+                                    Classes="segment-btn"
+                                    Classes.active="{Binding IsTunMode}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <PathIcon Data="M7 2v11h3v9l7-12h-4l4-8z" Width="12" Height="12" Foreground="#38BDF8" />
+                                    <TextBlock Text="TUN (Wintun)" FontSize="11" FontWeight="Bold" FontFamily="Consolas, monospace" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button Grid.Column="2"
+                                    Command="{Binding SetModeCommand}"
+                                    CommandParameter="proxy"
+                                    Classes="segment-btn"
+                                    Classes.active="{Binding IsSystemProxy}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <PathIcon Data="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" Width="12" Height="12" Foreground="#34D399" />
+                                    <TextBlock Text="System Proxy" FontSize="11" FontWeight="Bold" FontFamily="Consolas, monospace" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- 3. PROMINENT SERVER CONSOLE CARD -->
+            <Border Classes="glass-card" Padding="20,18">
+                <DockPanel>
+                    <Border Width="46" Height="46" CornerRadius="14" Background="#1E1B4B" BorderBrush="#8B5CF6" BorderThickness="1" Margin="0,0,16,0" DockPanel.Dock="Left">
+                        <PathIcon Data="M7 2v11h3v9l7-12h-4l4-8z" Width="20" Height="20" Foreground="#C084FC" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+
+                    <!-- Right Change Server Button -->
+                    <Button Classes="segment-btn"
+                            DockPanel.Dock="Right"
+                            Padding="14,8"
+                            CornerRadius="10"
+                            VerticalAlignment="Center">
+                        <TextBlock Text="Сменить узел →" FontSize="11" FontWeight="Bold" Foreground="#C084FC" />
+                    </Button>
+
+                    <StackPanel Spacing="3" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="АКТИВНЫЙ СЕРВЕР" FontSize="10" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" />
+                            <Border Background="#3B0764" BorderBrush="#A855F7" BorderThickness="1" CornerRadius="8" Padding="6,1">
+                                <TextBlock Text="{Binding SelectedServer.Protocol, FallbackValue='VLESS REALITY'}" FontSize="9" FontWeight="Bold" Foreground="#D8B4FE" FontFamily="Consolas, monospace" />
+                            </Border>
+                            <Border Background="{Binding SelectedCoreEngine.BgColor}" BorderBrush="{Binding SelectedCoreEngine.Color}" BorderThickness="1" CornerRadius="8" Padding="6,1">
+                                <TextBlock Text="{Binding SelectedCoreEngine.DisplayName, StringFormat='Ядро: {0}'}" FontSize="9" FontWeight="Bold" Foreground="{Binding SelectedCoreEngine.Color}" FontFamily="Consolas, monospace" />
+                            </Border>
+                        </StackPanel>
+                        <TextBlock Text="{Binding SelectedServer.Name, FallbackValue='Сервер не выбран'}" FontSize="15" FontWeight="Bold" Foreground="White" />
+                        <TextBlock Text="{Binding SelectedServer.Subtitle, FallbackValue='Нажмите для выбора сервера'}" FontSize="11" Foreground="#64748B" FontFamily="Consolas, monospace" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -1,0 +1,198 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SentinelDesktop.ViewModels"
+             x:Class="SentinelDesktop.Views.Hotspot.HotspotView"
+             x:DataType="vm:HotspotViewModel">
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="22" Margin="32,24,32,28">
+            
+            <!-- 1. TOP HEADER & STATUS -->
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,16,0">
+                    <TextBlock Text="Раздача с мобильного телефона" FontSize="22" FontWeight="ExtraBold" Foreground="White" />
+                    <TextBlock Text="Безопасное сопряжение с точкой доступа Wi-Fi (Sentinel Phone Tethering)" FontSize="12" Foreground="#64748B" TextWrapping="Wrap" />
+                </StackPanel>
+
+                <!-- Right Status Badge -->
+                <Border Grid.Column="1" Background="#0C1D33" BorderBrush="#0284C7" BorderThickness="1" CornerRadius="12" Padding="12,6" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <PathIcon Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" Width="14" Height="14" Foreground="#38BDF8" />
+                        <TextBlock Text="{Binding DiscoveryStatusText}" FontSize="11" FontWeight="Bold" Foreground="{Binding DiscoveryStatusColor}" FontFamily="Consolas, monospace" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- 2. TWO-COLUMN BENTO GRID -->
+            <Grid ColumnDefinitions="1.2*,18,*">
+                <!-- Left: Main Pairing Control Card -->
+                <Border Grid.Column="0" Classes="glass-card" Padding="22">
+                    <StackPanel Spacing="16">
+                        <DockPanel>
+                            <Border Width="40" Height="40" CornerRadius="10" Background="#1E1B4B" BorderBrush="#8B5CF6" BorderThickness="1" Margin="0,0,14,0" DockPanel.Dock="Left">
+                                <PathIcon Data="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z" Width="18" Height="18" Foreground="#C084FC" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Подключение к мобильной точке доступа" FontSize="14" FontWeight="Bold" Foreground="White" />
+                                <TextBlock Text="Защищенное туннелирование трафика ПК через смартфон" FontSize="11" Foreground="#64748B" />
+                            </StackPanel>
+                        </DockPanel>
+
+                        <!-- Quick Gateway IP Selectors -->
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Обнаруженные сетевые шлюзы:" FontSize="11" Foreground="#94A3B8" />
+                            <ItemsControl ItemsSource="{Binding CandidateGateways}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Command="{Binding #Root.DataContext.SelectGatewayCommand}"
+                                                CommandParameter="{Binding}"
+                                                Classes="segment-btn"
+                                                Margin="0,0,6,6" Padding="10,5">
+                                            <TextBlock Text="{Binding}" FontSize="11" FontFamily="Consolas, monospace" />
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <!-- Target IP Input & Probe Button -->
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="IP-адрес телефона в сети Wi-Fi:" FontSize="11" Foreground="#94A3B8" />
+                            <Grid ColumnDefinitions="*,10,Auto">
+                                <TextBox Grid.Column="0"
+                                         Text="{Binding TargetIp, Mode=TwoWay}"
+                                         Watermark="например: 192.168.43.1"
+                                         Padding="12,8"
+                                         CornerRadius="10"
+                                         Background="#080C1A"
+                                         BorderBrush="#1E293B"
+                                         FontFamily="Consolas, monospace"
+                                         FontSize="12" />
+
+                                <Button Grid.Column="2"
+                                        Command="{Binding ProbePhoneCommand}"
+                                        Classes="segment-btn"
+                                        Padding="14,8"
+                                        CornerRadius="10">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <PathIcon Data="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" Width="12" Height="12" Foreground="#38BDF8" />
+                                        <TextBlock Text="Найти телефон" FontSize="11.5" FontWeight="Bold" Foreground="#38BDF8" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                        </StackPanel>
+
+                        <!-- PIN Code Security Box -->
+                        <Border Background="#060A18" BorderBrush="#1C243C" BorderThickness="1" CornerRadius="12" Padding="16,14">
+                            <DockPanel>
+                                <Button Command="{Binding GeneratePinCommand}"
+                                        Classes="segment-btn"
+                                        Padding="10,6"
+                                        DockPanel.Dock="Right"
+                                        VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <PathIcon Data="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0020 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 004 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" Width="10" Height="10" Foreground="#C084FC" />
+                                        <TextBlock Text="Новый PIN" FontSize="10.5" Foreground="#C084FC" />
+                                    </StackPanel>
+                                </Button>
+
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="ПИН-КОД СОПРЯЖЕНИЯ" FontSize="9.5" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" />
+                                    <TextBlock Text="{Binding CurrentPin}" FontSize="22" FontWeight="ExtraBold" Foreground="#C084FC" LetterSpacing="6" FontFamily="Consolas, monospace" />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- Status Message Box -->
+                        <Border IsVisible="{Binding StatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                Background="#0A1020" BorderBrush="{Binding StatusColor}" BorderThickness="1" CornerRadius="10" Padding="12,8">
+                            <TextBlock Text="{Binding StatusMessage}" FontSize="11" FontWeight="Bold" Foreground="{Binding StatusColor}" TextWrapping="Wrap" />
+                        </Border>
+
+                        <!-- Master Request Pairing Action Button -->
+                        <Button Command="{Binding RequestPairingAndConnectCommand}"
+                                Classes="accent-glow"
+                                Padding="18,12"
+                                CornerRadius="12"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+                                <PathIcon Data="M7 2v11h3v9l7-12h-4l4-8z" Width="14" Height="14" Foreground="White" />
+                                <TextBlock Text="Запросить сопряжение и подключиться" FontSize="13" FontWeight="Bold" Foreground="White" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Border>
+
+                <!-- Right: Guide & Instructions Card -->
+                <Border Grid.Column="2" Classes="glass-card" Padding="22">
+                    <StackPanel Spacing="16">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Border Width="36" Height="36" CornerRadius="10" Background="#064E3B" BorderBrush="#10B981" BorderThickness="1">
+                                <PathIcon Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" Width="16" Height="16" Foreground="#34D399" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Инструкция по подключению" FontSize="14" FontWeight="Bold" Foreground="White" />
+                                <TextBlock Text="4 простых шага для раздачи интернета" FontSize="11" Foreground="#64748B" />
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Steps List -->
+                        <StackPanel Spacing="12">
+                            <!-- Step 1 -->
+                            <Border Classes="sub-panel" Padding="12,10">
+                                <StackPanel Spacing="3">
+                                    <TextBlock Text="ШАГ 1: ТОЧКА ДОСТУПА" FontSize="9.5" FontWeight="Bold" Foreground="#38BDF8" FontFamily="Consolas, monospace" />
+                                    <TextBlock Text="Включите «Точку доступа Wi-Fi» на вашем смартфоне (Android / iOS)." FontSize="11" Foreground="#CBD5E1" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Step 2 -->
+                            <Border Classes="sub-panel" Padding="12,10">
+                                <StackPanel Spacing="3">
+                                    <TextBlock Text="ШАГ 2: ПОДКЛЮЧЕНИЕ ПК" FontSize="9.5" FontWeight="Bold" Foreground="#38BDF8" FontFamily="Consolas, monospace" />
+                                    <TextBlock Text="Подключите этот компьютер к созданной Wi-Fi сети вашего смартфона." FontSize="11" Foreground="#CBD5E1" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Step 3 -->
+                            <Border Classes="sub-panel" Padding="12,10">
+                                <StackPanel Spacing="3">
+                                    <TextBlock Text="ШАГ 3: SENTINEL MOBILE" FontSize="9.5" FontWeight="Bold" Foreground="#38BDF8" FontFamily="Consolas, monospace" />
+                                    <TextBlock Text="Откройте приложение Sentinel Mobile на телефоне и перейдите во вкладку «Раздача»." FontSize="11" Foreground="#CBD5E1" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Step 4 -->
+                            <Border Classes="sub-panel" Padding="12,10">
+                                <StackPanel Spacing="3">
+                                    <TextBlock Text="ШАГ 4: СОПРЯЖЕНИЕ" FontSize="9.5" FontWeight="Bold" Foreground="#38BDF8" FontFamily="Consolas, monospace" />
+                                    <TextBlock Text="Нажмите «Запросить сопряжение» и введите отображаемый 4-значный PIN-код на экране телефона." FontSize="11" Foreground="#CBD5E1" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- Download Mobile App Button -->
+                        <Button Command="{Binding OpenMobileGithubCommand}"
+                                Classes="segment-btn"
+                                Padding="14,10"
+                                CornerRadius="10"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                                <PathIcon Data="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z" Width="13" Height="13" Foreground="#C084FC" />
+                                <TextBlock Text="Скачать Sentinel Mobile (GitHub)" FontSize="11.5" FontWeight="Bold" Foreground="#C084FC" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

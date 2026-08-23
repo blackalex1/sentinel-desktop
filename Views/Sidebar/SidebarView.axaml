@@ -1,0 +1,152 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SentinelDesktop.ViewModels"
+             x:Class="SentinelDesktop.Views.Sidebar.SidebarView"
+             x:DataType="vm:MainWindowViewModel">
+
+    <Border Background="#0A0D1A" BorderBrush="#1E2638" BorderThickness="0,0,1,0" Padding="18,36,18,24">
+        <DockPanel>
+            <!-- 1. BRAND TITLE HEADER -->
+            <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="8,0,0,32">
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <Border Width="38" Height="38" CornerRadius="10" Background="#1E1B4B" BorderBrush="#8B5CF6" BorderThickness="1" ClipToBounds="True">
+                        <Image Source="avares://SentinelDesktop/Assets/logo.png" Width="34" Height="34" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="SENTINEL" FontWeight="ExtraBold" FontSize="16" Foreground="#C084FC" LetterSpacing="1" />
+                        <TextBlock Text="Secure Desktop" FontWeight="Bold" FontSize="12" Foreground="White" />
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- 2. FOOTER ENGINE STATUS WIDGET (Shows active selected core) -->
+            <Border DockPanel.Dock="Bottom" Background="#0D1122" BorderBrush="#1E2638" BorderThickness="1" CornerRadius="10" Padding="12,10" Margin="4,16,4,0">
+                <StackPanel Spacing="3">
+                    <TextBlock Text="ВЫБРАННОЕ ЯДРО" FontSize="9" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" />
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Ellipse Width="6" Height="6" Fill="{Binding ActiveCoreColor}" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding ActiveCoreDisplayName}" FontSize="11" FontWeight="Bold" Foreground="{Binding ActiveCoreColor}" FontFamily="Consolas, monospace" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- 3. NAVIGATION MENU BUTTONS -->
+            <StackPanel Spacing="6">
+                <!-- Section Label -->
+                <TextBlock Text="ОСНОВНОЕ" FontSize="10" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" Margin="10,0,0,4" />
+
+                <!-- Dashboard Button -->
+                <Button Command="{Binding NavigateCommand}" CommandParameter="dashboard"
+                        Classes="nav-item"
+                        Classes.active="{Binding IsDashboardActive}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                    <DockPanel HorizontalAlignment="Stretch" LastChildFill="True">
+                        <Ellipse Width="6" Height="6" Fill="#C084FC" VerticalAlignment="Center" DockPanel.Dock="Right" IsVisible="{Binding IsDashboardActive}" Margin="4,0,4,0" />
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <PathIcon Data="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" Width="16" Height="16"
+                                      Foreground="{Binding DashboardIconColor}" />
+                            <TextBlock Text="Панель управления" FontSize="13" FontWeight="SemiBold"
+                                       Foreground="{Binding DashboardForeground}" />
+                        </StackPanel>
+                    </DockPanel>
+                </Button>
+
+                <!-- Servers Button -->
+                <Button Command="{Binding NavigateCommand}" CommandParameter="servers"
+                        Classes="nav-item"
+                        Classes.active="{Binding IsServersActive}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                    <DockPanel HorizontalAlignment="Stretch" LastChildFill="True">
+                        <Ellipse Width="6" Height="6" Fill="#38BDF8" VerticalAlignment="Center" DockPanel.Dock="Right" IsVisible="{Binding IsServersActive}" Margin="4,0,4,0" />
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <PathIcon Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" Width="16" Height="16"
+                                      Foreground="{Binding ServersIconColor}" />
+                            <TextBlock Text="Подключения и узлы" FontSize="13" FontWeight="SemiBold"
+                                       Foreground="{Binding ServersForeground}" />
+                        </StackPanel>
+                    </DockPanel>
+                </Button>
+
+                <!-- Routing Button -->
+                <Button Command="{Binding NavigateCommand}" CommandParameter="routing"
+                        Classes="nav-item"
+                        Classes.active="{Binding IsRoutingActive}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                    <DockPanel HorizontalAlignment="Stretch" LastChildFill="True">
+                        <Ellipse Width="6" Height="6" Fill="#A78BFA" VerticalAlignment="Center" DockPanel.Dock="Right" IsVisible="{Binding IsRoutingActive}" Margin="4,0,4,0" />
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <PathIcon Data="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z" Width="16" Height="16"
+                                      Foreground="{Binding RoutingIconColor}" />
+                            <TextBlock Text="Маршрутизация" FontSize="13" FontWeight="SemiBold"
+                                       Foreground="{Binding RoutingForeground}" />
+                        </StackPanel>
+                    </DockPanel>
+                </Button>
+
+                <!-- Sentinel Connect (Hotspot) Button -->
+                <Button Command="{Binding NavigateCommand}" CommandParameter="hotspot"
+                        Classes="nav-item"
+                        Classes.active="{Binding IsHotspotActive}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                    <DockPanel HorizontalAlignment="Stretch" LastChildFill="True">
+                        <Ellipse Width="6" Height="6" Fill="#38BDF8" VerticalAlignment="Center" DockPanel.Dock="Right" IsVisible="{Binding IsHotspotActive}" Margin="4,0,4,0" />
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <PathIcon Data="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z" Width="16" Height="16"
+                                      Foreground="{Binding HotspotIconColor}" />
+                            <TextBlock Text="Sentinel Connect" FontSize="13" FontWeight="SemiBold"
+                                       Foreground="{Binding HotspotForeground}" />
+                        </StackPanel>
+                    </DockPanel>
+                </Button>
+
+                <!-- Security Button -->
+                <Button Command="{Binding NavigateCommand}" CommandParameter="security"
+                        Classes="nav-item"
+                        Classes.active="{Binding IsSecurityActive}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                    <DockPanel HorizontalAlignment="Stretch" LastChildFill="True">
+                        <Ellipse Width="6" Height="6" Fill="#F87171" VerticalAlignment="Center" DockPanel.Dock="Right" IsVisible="{Binding IsSecurityActive}" Margin="4,0,4,0" />
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <PathIcon Data="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" Width="16" Height="16"
+                                      Foreground="{Binding SecurityIconColor}" />
+                            <TextBlock Text="Безопасность" FontSize="13" FontWeight="SemiBold"
+                                       Foreground="{Binding SecurityForeground}" />
+                        </StackPanel>
+                    </DockPanel>
+                </Button>
+
+                <!-- Core Manager Button -->
+                <Button Command="{Binding NavigateCommand}" CommandParameter="cores"
+                        Classes="nav-item"
+                        Classes.active="{Binding IsCoreManagerActive}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                    <DockPanel HorizontalAlignment="Stretch" LastChildFill="True">
+                        <Ellipse Width="6" Height="6" Fill="#34D399" VerticalAlignment="Center" DockPanel.Dock="Right" IsVisible="{Binding IsCoreManagerActive}" Margin="4,0,4,0" />
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <PathIcon Data="M6 2v2h2V2h2v2h4V2h2v2h2c1.1 0 2 .9 2 2v2h2v2h-2v4h2v2h-2v2c0 1.1-.9 2-2 2h-2v2h-2v-2h-4v2H8v-2H6c-1.1 0-2-.9-2-2v-2H2v-2h2v-4H2V8h2V6c0-1.1.9-2 2-2h2V2zm12 16V6H6v12h12zm-2-2H8V8h8v8z" Width="16" Height="16"
+                                      Foreground="{Binding CoreManagerIconColor}" />
+                            <TextBlock Text="Управление ядрами" FontSize="13" FontWeight="SemiBold"
+                                       Foreground="{Binding CoreManagerForeground}" />
+                        </StackPanel>
+                    </DockPanel>
+                </Button>
+
+                <!-- Logs Button -->
+                <Button Command="{Binding NavigateCommand}" CommandParameter="logs"
+                        Classes="nav-item"
+                        Classes.active="{Binding IsLogsActive}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                    <DockPanel HorizontalAlignment="Stretch" LastChildFill="True">
+                        <Ellipse Width="6" Height="6" Fill="#FBBF24" VerticalAlignment="Center" DockPanel.Dock="Right" IsVisible="{Binding IsLogsActive}" Margin="4,0,4,0" />
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <PathIcon Data="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" Width="16" Height="16"
+                                      Foreground="{Binding LogsIconColor}" />
+                            <TextBlock Text="Журнал логов" FontSize="13" FontWeight="SemiBold"
+                                       Foreground="{Binding LogsForeground}" />
+                        </StackPanel>
+                    </DockPanel>
+                </Button>
+            </StackPanel>
+        </DockPanel>
+    </Border>
+</UserControl>
