@@ -1,6 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -76,6 +77,22 @@ public partial class HotspotViewModel : ViewModelBase
             {
                 TargetIp = list[0];
             }
+
+            // Automatic background fast probe on startup
+            _ = Task.Run(async () =>
+            {
+                var autoResult = await HotspotService.Instance.ScanAllGatewaysAsync(list);
+                if (autoResult.Found)
+                {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        DiscoveryResult = autoResult;
+                        TargetIp = autoResult.GatewayIP;
+                        StatusMessage = $"🟢 Телефон автоматически обнаружен на {autoResult.GatewayIP}:{autoResult.PairingPort}";
+                        StatusColor = "#34D399";
+                    });
+                }
+            });
         }
         catch { }
     }
@@ -84,6 +101,7 @@ public partial class HotspotViewModel : ViewModelBase
     public void SelectGateway(string ip)
     {
         TargetIp = ip;
+        _ = ProbePhoneAsync();
     }
 
     [RelayCommand]
@@ -95,28 +113,40 @@ public partial class HotspotViewModel : ViewModelBase
     [RelayCommand]
     public async Task ProbePhoneAsync()
     {
-        if (string.IsNullOrWhiteSpace(TargetIp))
-        {
-            StatusMessage = "Укажите IP-адрес телефона или выберите шлюз";
-            StatusColor = "#F87171";
-            return;
-        }
-
         IsScanning = true;
-        StatusMessage = "Поиск запущенной службы Sentinel Mobile...";
+        StatusMessage = "Сканирование всех сетевых шлюзов на наличие Sentinel Mobile...";
         StatusColor = "#38BDF8";
 
         try
         {
-            DiscoveryResult = await HotspotService.Instance.ProbePairingServerAsync(TargetIp);
-            if (DiscoveryResult.Found)
+            HotspotDiscoveryResult res;
+
+            if (!string.IsNullOrWhiteSpace(TargetIp))
             {
-                StatusMessage = $"Телефон успешно найден на {DiscoveryResult.GatewayIP}:{DiscoveryResult.PairingPort}";
+                res = await HotspotService.Instance.ProbePairingServerAsync(TargetIp);
+                if (!res.Found)
+                {
+                    // If target IP probe fails, search all other gateways concurrently
+                    var allGateways = CandidateGateways.ToList();
+                    res = await HotspotService.Instance.ScanAllGatewaysAsync(allGateways);
+                }
+            }
+            else
+            {
+                var allGateways = CandidateGateways.ToList();
+                res = await HotspotService.Instance.ScanAllGatewaysAsync(allGateways);
+            }
+
+            DiscoveryResult = res;
+            if (res.Found)
+            {
+                TargetIp = res.GatewayIP;
+                StatusMessage = $"🟢 Телефон обнаружен на {res.GatewayIP} (порт {res.PairingPort})";
                 StatusColor = "#34D399";
             }
             else
             {
-                StatusMessage = DiscoveryResult.ErrorMessage ?? "Телефон не обнаружен";
+                StatusMessage = res.ErrorMessage ?? "Телефон с раздачей Sentinel не найден. Убедитесь, что раздача включена на телефоне.";
                 StatusColor = "#F87171";
             }
         }
