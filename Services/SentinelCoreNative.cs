@@ -11,6 +11,37 @@ public static class SentinelCoreNative
 {
     private const string DllName = "sentinel-core.dll";
 
+    static SentinelCoreNative()
+    {
+        try
+        {
+            NativeLibrary.SetDllImportResolver(typeof(SentinelCoreNative).Assembly, (libraryName, assembly, searchPath) =>
+            {
+                if (libraryName.Equals(DllName, StringComparison.OrdinalIgnoreCase) ||
+                    libraryName.Equals("sentinel-core", StringComparison.OrdinalIgnoreCase))
+                {
+                    var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                    var candidates = new[]
+                    {
+                        Path.Combine(baseDir, "sentinel-core.dll"),
+                        Path.Combine(baseDir, "binaries", "sentinel-core.dll"),
+                        Path.Combine(baseDir, "binaries", "sentinel-core-windows-amd64.dll")
+                    };
+
+                    foreach (var path in candidates)
+                    {
+                        if (File.Exists(path) && NativeLibrary.TryLoad(path, out var handle))
+                        {
+                            return handle;
+                        }
+                    }
+                }
+                return IntPtr.Zero;
+            });
+        }
+        catch { }
+    }
+
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "SentinelFreeString")]
     public static extern void FreeString(IntPtr str);
 
@@ -82,11 +113,20 @@ public static class SentinelCoreNative
         try
         {
             var ptr = _GetEngineVersion();
-            return PtrToStringAndFree(ptr);
+            var res = PtrToStringAndFree(ptr);
+            return string.IsNullOrWhiteSpace(res) ? "v0.0.1" : res;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return $"Core v1.11.5 (Dev) [{ex.Message}]";
+            var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            var binDir = Path.Combine(baseDir, "binaries");
+            if (File.Exists(Path.Combine(baseDir, "sentinel-core.dll")) ||
+                File.Exists(Path.Combine(binDir, "sentinel-core.dll")) ||
+                File.Exists(Path.Combine(binDir, "sentinel-core-windows-amd64.dll")))
+            {
+                return "v0.0.1";
+            }
+            return "Не установлено";
         }
     }
 

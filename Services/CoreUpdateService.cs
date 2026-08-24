@@ -43,15 +43,31 @@ public class CoreUpdateService
     {
         try
         {
+            var binDir = GetBinariesDirectory();
+            var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+
             if (coreKey == "sentinel_core")
             {
+                var dllExists = File.Exists(Path.Combine(binDir, "sentinel-core.dll")) ||
+                               File.Exists(Path.Combine(binDir, "sentinel-core-windows-amd64.dll")) ||
+                               File.Exists(Path.Combine(baseDir, "sentinel-core.dll")) ||
+                               File.Exists(Path.Combine(baseDir, "sentinel-core-windows-amd64.dll"));
+
                 var raw = SentinelCoreNative.GetVersion();
-                if (string.IsNullOrWhiteSpace(raw)) return "Не установлено";
+                if (raw.Contains("Не установлено", StringComparison.OrdinalIgnoreCase) && !dllExists)
+                {
+                    return "Не установлено";
+                }
+
+                if (string.IsNullOrWhiteSpace(raw) || raw.Equals("dev", StringComparison.OrdinalIgnoreCase) || raw.Contains("Не установлено", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "v0.0.1";
+                }
+
                 var m = Regex.Match(raw, @"v?(\d+\.\d+(\.\d+)?)");
                 return m.Success ? $"v{m.Groups[1].Value}" : raw.Trim();
             }
 
-            var binDir = GetBinariesDirectory();
             var exeName = Repositories.TryGetValue(coreKey, out var repo) ? repo.ExeName : "sing-box.exe";
             var targetPath = Path.Combine(binDir, exeName);
 
