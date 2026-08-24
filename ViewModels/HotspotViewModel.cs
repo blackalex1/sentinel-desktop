@@ -185,7 +185,9 @@ public partial class HotspotViewModel : ViewModelBase
                 var vault = StorageService.Load();
                 vault.Servers.RemoveAll(s => s.Address == server.Address && s.Port == server.Port);
                 vault.Servers.Insert(0, server);
+                vault.SelectedServerId = server.Id;
                 StorageService.Save(vault);
+                StorageService.NotifyServersChanged();
 
                 StatusMessage = $"✅ Сопряжение успешно! Сервер \"{server.Name}\" активирован.";
                 StatusColor = "#34D399";

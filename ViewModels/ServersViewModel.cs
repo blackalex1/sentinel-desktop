@@ -40,6 +40,10 @@ public partial class ServersViewModel : ViewModelBase
     public ServersViewModel()
     {
         LoadServers();
+        StorageService.ServersChanged += () =>
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(LoadServers);
+        };
     }
 
     public void LoadServers()
@@ -56,6 +60,10 @@ public partial class ServersViewModel : ViewModelBase
         {
             SelectedServer = Servers.FirstOrDefault(x => x.Id == vault.SelectedServerId) ?? Servers[0];
             if (SelectedServer != null) SelectedServer.IsSelected = true;
+        }
+        else
+        {
+            SelectedServer = null;
         }
 
         OnPropertyChanged(nameof(TotalServersCount));
