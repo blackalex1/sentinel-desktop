@@ -24,6 +24,33 @@
                     </StackPanel>
                 </DockPanel>
 
+                <!-- 1.5 XRAY INCOMPATIBILITY WARNING BANNER -->
+                <Border IsVisible="{Binding IsXrayActive}"
+                        Background="#260C14"
+                        BorderBrush="#EF4444"
+                        BorderThickness="1.5"
+                        CornerRadius="14"
+                        Padding="18,14">
+                    <DockPanel>
+                        <Border Width="42" Height="42" CornerRadius="12" Background="#450A0A" BorderBrush="#EF4444" BorderThickness="1" Margin="0,0,14,0" DockPanel.Dock="Left" VerticalAlignment="Center">
+                            <PathIcon Data="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z" Width="20" Height="20" Foreground="#F87171" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+
+                        <StackPanel Spacing="3" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="МОДУЛЬ БЕЗОПАСНОСТИ ОТКЛЮЧЕН ДЛЯ ЯДРА XRAY-CORE" FontSize="13" FontWeight="ExtraBold" Foreground="#F87171" FontFamily="Consolas, monospace" />
+                                <Border Background="#450A0A" BorderBrush="#EF4444" BorderThickness="1" CornerRadius="6" Padding="6,1">
+                                    <TextBlock Text="XRAY BYPASS" FontSize="9" FontWeight="Bold" Foreground="#FCA5A5" FontFamily="Consolas, monospace" />
+                                </Border>
+                            </StackPanel>
+                            <TextBlock Text="В силу специфики и архитектуры ядра Xray-core, функции сетевой изоляции PortShield, контроль сетевых утечек и блокировки процессов не применяются. Для использования полного Кибер-щита переключитесь на ядро Sing-box в разделе «Управление ядрами»." FontSize="11.5" Foreground="#CBD5E1" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
+                <!-- SECURITY CONTROLS WRAPPER (Disabled when Xray is active) -->
+                <StackPanel IsEnabled="{Binding IsSecurityEnabled}" Opacity="{Binding SecurityControlsOpacity}" Spacing="20">
+
                 <!-- 2. MASTER GAUGES / QUICK SHIELDS (4 Cards Grid) -->
                 <Grid ColumnDefinitions="*,12,*,12,*,12,*">
                     <!-- 1. PortShield -->
@@ -488,6 +515,9 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </StackPanel>
+
+                </StackPanel>
+                <!-- END OF SECURITY CONTROLS WRAPPER -->
 
             </StackPanel>
         </ScrollViewer>

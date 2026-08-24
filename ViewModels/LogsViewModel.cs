@@ -20,8 +20,6 @@ namespace SentinelDesktop.ViewModels;
 public partial class LogsViewModel : ViewModelBase
 {
     private readonly List<LogEntry> _allLogs = new(2048);
-    private readonly ConcurrentQueue<LogEntry> _incomingQueue = new();
-    private readonly DispatcherTimer _batchTimer;
 
     [ObservableProperty]
     private ObservableCollection<LogEntry> _displayLogs = new();
@@ -49,26 +47,40 @@ public partial class LogsViewModel : ViewModelBase
     public int TotalCount => _allLogs.Count;
     public int DisplayCount => DisplayLogs.Count;
 
+    public bool IsAllFilterActive => SelectedFilter == "ALL";
+    public bool IsCoreFilterActive => SelectedFilter == "CORE";
+    public bool IsAppFilterActive => SelectedFilter == "APP";
+    public bool IsErrorFilterActive => SelectedFilter == "ERROR";
+
     public LogsViewModel()
     {
         var vault = StorageService.Load();
         _selectedLogLevel = LogLevelsCatalog.GetLevel(vault.Settings.LogLevel);
 
-        _allLogs = LoggingService.Instance.GetAllLogs();
-        ApplyFilter();
+        RefreshLogs();
 
         LoggingService.Instance.OnLogAdded += entry =>
         {
-            _incomingQueue.Enqueue(entry);
-        };
+            Dispatcher.UIThread.Post(() =>
+            {
+                _allLogs.Add(entry);
+                if (_allLogs.Count > 3000)
+                {
+                    _allLogs.RemoveAt(0);
+                }
 
-        // 10 FPS Batch Dispatcher (100ms interval) to completely prevent UI freeze under high trace load
-        _batchTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromMilliseconds(100)
+                if (MatchesFilter(entry))
+                {
+                    DisplayLogs.Add(entry);
+                    if (DisplayLogs.Count > 1000)
+                    {
+                        DisplayLogs.RemoveAt(0);
+                    }
+                    OnPropertyChanged(nameof(TotalCount));
+                    OnPropertyChanged(nameof(DisplayCount));
+                }
+            }, DispatcherPriority.Normal);
         };
-        _batchTimer.Tick += (s, e) => ProcessBatch();
-        _batchTimer.Start();
 
         StorageService.LogLevelChanged += levelId =>
         {
@@ -80,48 +92,11 @@ public partial class LogsViewModel : ViewModelBase
         };
     }
 
-    private void ProcessBatch()
+    public void RefreshLogs()
     {
-        if (_incomingQueue.IsEmpty) return;
-
-        var batch = new List<LogEntry>();
-        while (_incomingQueue.TryDequeue(out var entry) && batch.Count < 300)
-        {
-            batch.Add(entry);
-        }
-
-        if (batch.Count == 0) return;
-
-        _allLogs.AddRange(batch);
-        if (_allLogs.Count > 2000)
-        {
-            _allLogs.RemoveRange(0, _allLogs.Count - 2000);
-        }
-
-        bool addedToDisplay = false;
-        foreach (var entry in batch)
-        {
-            if (MatchesFilter(entry))
-            {
-                DisplayLogs.Add(entry);
-                addedToDisplay = true;
-            }
-        }
-
-        if (DisplayLogs.Count > 500)
-        {
-            var removeCount = DisplayLogs.Count - 500;
-            for (int i = 0; i < removeCount; i++)
-            {
-                DisplayLogs.RemoveAt(0);
-            }
-        }
-
-        if (addedToDisplay)
-        {
-            OnPropertyChanged(nameof(TotalCount));
-            OnPropertyChanged(nameof(DisplayCount));
-        }
+        _allLogs.Clear();
+        _allLogs.AddRange(LoggingService.Instance.GetAllLogs());
+        ApplyFilter();
     }
 
     partial void OnSelectedLogLevelChanged(LogLevelOption value)
@@ -136,7 +111,6 @@ public partial class LogsViewModel : ViewModelBase
             ShowStatus($"Уровень логов: {value.DisplayName}");
             LoggingService.Instance.LogApp($"Уровень детализации логов ядра переключен на '{value.DisplayName}' ({value.SingboxLevel})");
 
-            // Hot reload core dynamically with new log level if VPN is currently active
             if (VpnCoreService.Instance.IsRunning)
             {
                 _ = VpnCoreService.Instance.HotReloadLogLevelAsync(value.Id);
@@ -151,6 +125,10 @@ public partial class LogsViewModel : ViewModelBase
 
     partial void OnSelectedFilterChanged(string value)
     {
+        OnPropertyChanged(nameof(IsAllFilterActive));
+        OnPropertyChanged(nameof(IsCoreFilterActive));
+        OnPropertyChanged(nameof(IsAppFilterActive));
+        OnPropertyChanged(nameof(IsErrorFilterActive));
         ApplyFilter();
     }
 
@@ -165,7 +143,6 @@ public partial class LogsViewModel : ViewModelBase
     {
         LoggingService.Instance.Clear();
         _allLogs.Clear();
-        while (_incomingQueue.TryDequeue(out _)) { }
         DisplayLogs.Clear();
         OnPropertyChanged(nameof(TotalCount));
         OnPropertyChanged(nameof(DisplayCount));
@@ -210,8 +187,12 @@ public partial class LogsViewModel : ViewModelBase
 
     private void ApplyFilter()
     {
-        var filtered = _allLogs.Where(MatchesFilter).TakeLast(500).ToList();
-        DisplayLogs = new ObservableCollection<LogEntry>(filtered);
+        var filtered = _allLogs.Where(MatchesFilter).TakeLast(1000).ToList();
+        DisplayLogs.Clear();
+        foreach (var item in filtered)
+        {
+            DisplayLogs.Add(item);
+        }
         OnPropertyChanged(nameof(TotalCount));
         OnPropertyChanged(nameof(DisplayCount));
     }

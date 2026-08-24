@@ -12,23 +12,25 @@
             <!-- 1. TOOLBAR HEADER -->
             <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
                 <!-- Left Info -->
-                <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,16,0">
-                    <StackPanel Orientation="Horizontal" Spacing="10">
-                        <TextBlock Text="Управление и обновление ядер" FontSize="22" FontWeight="ExtraBold" Foreground="White" />
+                <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,16,0" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <TextBlock Text="Управление ядрами" FontSize="20" FontWeight="ExtraBold" Foreground="White" VerticalAlignment="Center" />
                         <Border Background="#1E1B4B" BorderBrush="#8B5CF6" BorderThickness="1" CornerRadius="10" Padding="8,2" VerticalAlignment="Center">
-                            <TextBlock Text="GitHub Sync" FontSize="11" FontWeight="Bold" Foreground="#D8B4FE" FontFamily="Consolas, monospace" />
+                            <TextBlock Text="GitHub Sync" FontSize="10" FontWeight="Bold" Foreground="#D8B4FE" FontFamily="Consolas, monospace" />
                         </Border>
                     </StackPanel>
-                    <TextBlock Text="Выбор, скачивание и обновление релизных и beta-сборок исполняемых ядер с GitHub" FontSize="12" Foreground="#64748B" TextWrapping="Wrap" />
+                    <TextBlock Text="Скачивание и обновление сборок исполняемых ядер с GitHub" FontSize="12" Foreground="#64748B" TextWrapping="Wrap" />
                 </StackPanel>
 
                 <!-- Right Action Buttons & Pre-Release Switch -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                    <!-- Pre-Release Checkbox -->
-                    <CheckBox IsChecked="{Binding IncludePrereleases, Mode=TwoWay}"
-                              VerticalAlignment="Center" Margin="0,0,4,0">
-                        <TextBlock Text="Включая Pre-Release / Beta" FontSize="11" FontWeight="SemiBold" Foreground="#CBD5E1" />
-                    </CheckBox>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <!-- Pre-Release Checkbox Frame -->
+                    <Border Background="#141A30" BorderBrush="#253050" BorderThickness="1" CornerRadius="8" Padding="10,5" VerticalAlignment="Center">
+                        <CheckBox IsChecked="{Binding IncludePrereleases, Mode=TwoWay}"
+                                  VerticalAlignment="Center" Margin="0" MinHeight="0" Padding="6,0,0,0">
+                            <TextBlock Text="Beta / Pre-Release" FontSize="11" FontWeight="SemiBold" Foreground="#CBD5E1" />
+                        </CheckBox>
+                    </Border>
 
                     <!-- Open Binaries Folder -->
                     <Button Command="{Binding OpenBinariesFolderCommand}"
@@ -90,15 +92,30 @@
                         <Border Classes="glass-card" Margin="0,0,0,16" Padding="20,18">
                             <StackPanel Spacing="14">
                                 
-                                <!-- Header Row: Title, Subtitle, Installed Version Badge -->
+                                <!-- Header Row: Title, Subtitle, Installed Version Badge & Active Switcher -->
                                 <DockPanel>
-                                    <!-- Right: Installed Version Badge -->
-                                    <Border DockPanel.Dock="Right"
-                                            Background="#0C1D24" BorderBrush="{Binding AccentColor}" BorderThickness="1"
-                                            CornerRadius="8" Padding="10,4" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding InstalledVersion, StringFormat='Текущая: {0}'}"
-                                                   FontSize="11" FontWeight="Bold" Foreground="{Binding AccentColor}" FontFamily="Consolas, monospace" />
-                                    </Border>
+                                    <!-- Right: Installed Version & Active Badge -->
+                                    <StackPanel Orientation="Horizontal" Spacing="8" DockPanel.Dock="Right" VerticalAlignment="Center">
+                                        <!-- Active Core Switcher Button (for proxy engines) -->
+                                        <Button IsVisible="{Binding IsEngineType}"
+                                                Command="{Binding #Root.DataContext.SetActiveEngineCommand}"
+                                                CommandParameter="{Binding CoreKey}"
+                                                Background="{Binding ActiveBadgeBg}"
+                                                BorderBrush="{Binding ActiveBadgeBorder}"
+                                                BorderThickness="1"
+                                                CornerRadius="8"
+                                                Padding="10,4"
+                                                Cursor="Hand"
+                                                ToolTip.Tip="Выбрать в качестве рабочего ядра для туннеля">
+                                            <TextBlock Text="{Binding ActiveBadgeText}" FontSize="11" FontWeight="Bold" Foreground="{Binding ActiveBadgeForeground}" FontFamily="Consolas, monospace" />
+                                        </Button>
+
+                                        <Border Background="#0C1D24" BorderBrush="{Binding AccentColor}" BorderThickness="1"
+                                                CornerRadius="8" Padding="10,4" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding InstalledVersion, StringFormat='Текущая: {0}'}"
+                                                       FontSize="11" FontWeight="Bold" Foreground="{Binding AccentColor}" FontFamily="Consolas, monospace" />
+                                        </Border>
+                                    </StackPanel>
 
                                     <!-- Left: Core Title and Subtitle -->
                                     <StackPanel Spacing="3">

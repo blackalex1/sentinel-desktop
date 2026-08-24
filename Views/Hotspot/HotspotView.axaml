@@ -116,14 +116,23 @@
 
                         <!-- Master Request Pairing Action Button -->
                         <Button Command="{Binding RequestPairingAndConnectCommand}"
+                                IsEnabled="{Binding !IsPairing}"
                                 Classes="accent-glow"
                                 Padding="18,12"
                                 CornerRadius="12"
                                 HorizontalAlignment="Stretch"
                                 HorizontalContentAlignment="Center">
                             <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
-                                <PathIcon Data="M7 2v11h3v9l7-12h-4l4-8z" Width="14" Height="14" Foreground="White" />
-                                <TextBlock Text="Запросить сопряжение и подключиться" FontSize="13" FontWeight="Bold" Foreground="White" />
+                                <PathIcon Data="M7 2v11h3v9l7-12h-4l4-8z" Width="14" Height="14" Foreground="White"
+                                          IsVisible="{Binding !IsPairing}" />
+                                <ProgressBar IsIndeterminate="True" Width="16" Height="16" Foreground="#C084FC"
+                                             IsVisible="{Binding IsPairing}" />
+                                <TextBlock Text="{Binding IsPairing, Converter={x:Static ObjectConverters.IsNull}, StringFormat='Ожидание подтверждения на телефоне...', FallbackValue='Выполнить сопряжение'}"
+                                           IsVisible="{Binding IsPairing}"
+                                           FontSize="12" FontWeight="Bold" Foreground="#E2E8F0" />
+                                <TextBlock Text="Выполнить сопряжение"
+                                           IsVisible="{Binding !IsPairing}"
+                                           FontSize="13" FontWeight="Bold" Foreground="White" />
                             </StackPanel>
                         </Button>
                     </StackPanel>

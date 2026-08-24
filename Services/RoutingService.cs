@@ -184,34 +184,37 @@ public class RoutingService
         NotifyQuarantineChanged();
     }
 
-    public object BuildRoutingSpecForAst()
+    public object BuildRoutingSpecForAst(bool includeSecurityRules = true)
     {
         var rules = new List<object>();
 
-        // 0. Quarantined Banned Processes (Highest Zero Trust Priority)
-        lock (_quarantinedApps)
+        if (includeSecurityRules)
         {
-            if (_quarantinedApps.Count > 0)
+            // 0. Quarantined Banned Processes (Highest Zero Trust Priority)
+            lock (_quarantinedApps)
             {
-                rules.Add(new
+                if (_quarantinedApps.Count > 0)
                 {
-                    action = "block",
-                    processNames = _quarantinedApps.Keys.ToList()
-                });
+                    rules.Add(new
+                    {
+                        action = "block",
+                        processNames = _quarantinedApps.Keys.ToList()
+                    });
+                }
             }
-        }
 
-        // 1. PortShield Active Blocked Sensitive Ports (Strict Zero-Trust mode only)
-        if (SecurityService.Instance.Settings.ShieldMode == "strict_block")
-        {
-            var blockedPorts = SecurityService.Instance.Settings.BlockedPorts;
-            if (blockedPorts != null && blockedPorts.Count > 0)
+            // 1. PortShield Active Blocked Sensitive Ports (Strict Zero-Trust mode only)
+            if (SecurityService.Instance.Settings.ShieldMode == "strict_block")
             {
-                rules.Add(new
+                var blockedPorts = SecurityService.Instance.Settings.BlockedPorts;
+                if (blockedPorts != null && blockedPorts.Count > 0)
                 {
-                    action = "block",
-                    ports = blockedPorts.Select(p => p.ToString()).ToList()
-                });
+                    rules.Add(new
+                    {
+                        action = "block",
+                        ports = blockedPorts.Select(p => p.ToString()).ToList()
+                    });
+                }
             }
         }
 

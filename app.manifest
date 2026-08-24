@@ -8,7 +8,7 @@
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
     <security>
       <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
-        <!-- Standard user level on startup (no UAC prompt on app launch). UAC is requested on-demand for TUN only. -->
+        <!-- Standard user level on launch. UAC is requested on-demand only in TUN mode. -->
         <requestedExecutionLevel level="asInvoker" uiAccess="false" />
       </requestedPrivileges>
     </security>

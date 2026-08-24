@@ -68,15 +68,18 @@ public partial class HotspotViewModel : ViewModelBase
         try
         {
             var list = await HotspotService.Instance.GetCandidateGatewaysAsync();
-            CandidateGateways.Clear();
-            foreach (var gw in list)
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
-                CandidateGateways.Add(gw);
-            }
-            if (list.Count > 0)
-            {
-                TargetIp = list[0];
-            }
+                CandidateGateways.Clear();
+                foreach (var gw in list)
+                {
+                    CandidateGateways.Add(gw);
+                }
+                if (list.Count > 0)
+                {
+                    TargetIp = list[0];
+                }
+            });
 
             // Automatic background fast probe on startup
             _ = Task.Run(async () =>
@@ -189,11 +192,8 @@ public partial class HotspotViewModel : ViewModelBase
                 StorageService.Save(vault);
                 StorageService.NotifyServersChanged();
 
-                StatusMessage = $"✅ Сопряжение успешно! Сервер \"{server.Name}\" активирован.";
+                StatusMessage = $"✅ Сопряжение выполнено! Узел \"{server.Name}\" сохранен и выбран. Запустите защиту на главном экране.";
                 StatusColor = "#34D399";
-
-                // Auto connect via VpnCoreService
-                await VpnCoreService.Instance.StartAsync(server, vault.Settings);
             }
             else
             {

@@ -23,6 +23,7 @@ public partial class CoreCardViewModel : ObservableObject
     public string AccentColor { get; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsInstalled))]
     [NotifyPropertyChangedFor(nameof(IsSelectedVersionInstalled))]
     [NotifyPropertyChangedFor(nameof(InstallButtonText))]
     [NotifyPropertyChangedFor(nameof(CanDownload))]
@@ -32,8 +33,10 @@ public partial class CoreCardViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(InstallButtonIcon))]
     private string _installedVersion = "Проверка...";
 
-    [ObservableProperty]
-    private bool _isInstalled;
+    public bool IsInstalled => !string.IsNullOrWhiteSpace(InstalledVersion) &&
+                              !InstalledVersion.Contains("Не установлено", StringComparison.OrdinalIgnoreCase) &&
+                              !InstalledVersion.Contains("Ошибка", StringComparison.OrdinalIgnoreCase) &&
+                              !InstalledVersion.Contains("Проверка", StringComparison.OrdinalIgnoreCase);
 
     [ObservableProperty]
     private ObservableCollection<GithubReleaseInfo> _availableReleases = new();
@@ -88,6 +91,20 @@ public partial class CoreCardViewModel : ObservableObject
         ? "M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" // Checkmark
         : "M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"; // Cloud download
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ActiveBadgeText))]
+    [NotifyPropertyChangedFor(nameof(ActiveBadgeBg))]
+    [NotifyPropertyChangedFor(nameof(ActiveBadgeBorder))]
+    [NotifyPropertyChangedFor(nameof(ActiveBadgeForeground))]
+    private bool _isActiveEngine;
+
+    public bool IsEngineType => CoreKey == "singbox" || CoreKey == "xray";
+
+    public string ActiveBadgeText => IsActiveEngine ? "● Активное ядро" : "Сделать активным";
+    public string ActiveBadgeBg => IsActiveEngine ? "#064E3B" : "#141A30";
+    public string ActiveBadgeBorder => IsActiveEngine ? "#10B981" : "#253050";
+    public string ActiveBadgeForeground => IsActiveEngine ? "#34D399" : "#94A3B8";
+
     public CoreCardViewModel(string coreKey, string displayName, string subtitle, string description, string accentColor)
     {
         CoreKey = coreKey;
@@ -100,9 +117,22 @@ public partial class CoreCardViewModel : ObservableObject
 
     public void RefreshInstalledVersion()
     {
-        var v = CoreUpdateService.Instance.DetectInstalledVersion(CoreKey);
-        InstalledVersion = v;
-        IsInstalled = !v.Contains("Не установлено", StringComparison.OrdinalIgnoreCase) && !v.Contains("Ошибка", StringComparison.OrdinalIgnoreCase);
+        Task.Run(() =>
+        {
+            var v = CoreUpdateService.Instance.DetectInstalledVersion(CoreKey);
+            Dispatcher.UIThread.Post(() =>
+            {
+                InstalledVersion = v;
+                OnPropertyChanged(nameof(IsInstalled));
+                OnPropertyChanged(nameof(IsSelectedVersionInstalled));
+                OnPropertyChanged(nameof(InstallButtonText));
+                OnPropertyChanged(nameof(CanDownload));
+                OnPropertyChanged(nameof(InstallButtonBg));
+                OnPropertyChanged(nameof(InstallButtonBorder));
+                OnPropertyChanged(nameof(InstallButtonForeground));
+                OnPropertyChanged(nameof(InstallButtonIcon));
+            });
+        });
     }
 
     public async Task LoadReleasesAsync(bool includePrereleases)
@@ -167,9 +197,9 @@ public partial class CoreCardViewModel : ObservableObject
                 await CoreUpdateService.Instance.DownloadAndInstallAssetAsync(asset, CoreKey, progress);
             });
 
-            RefreshInstalledVersion();
             DownloadStatus = "Успешно установлено!";
-            await Task.Delay(2500);
+            RefreshInstalledVersion();
+            await Task.Delay(1500);
         }
         catch (Exception ex)
         {
@@ -179,6 +209,7 @@ public partial class CoreCardViewModel : ObservableObject
         finally
         {
             IsDownloading = false;
+            RefreshInstalledVersion();
         }
     }
 
@@ -238,9 +269,25 @@ public partial class CoreManagerViewModel : ViewModelBase
         Cards.Add(new CoreCardViewModel(
             "singbox",
             "Sing-box Core",
-            "Основной универсальный TUN / Wintun / Reality",
-            "Главное ядро Sentinel по умолчанию. Поддержка нативного TUN-драйвера Windows Wintun, Reality, ECH и Smart Routing.",
+            "Рекомендуемое ядро (Wintun TUN, Reality, PortShield)",
+            "Главное ядро Sentinel по умолчанию. Поддержка нативного TUN-драйвера Windows Wintun, Reality, ECH, Smart Routing и модуля безопасности PortShield.",
             "#38BDF8"
+        ));
+
+        Cards.Add(new CoreCardViewModel(
+            "xray",
+            "Xray-core",
+            "Классическое ядро (VLESS Reality, VMess, Trojan)",
+            "Быстрое ядро для обхода блокировок. Обратите внимание: для Xray модуль безопасности PortShield отключается и требуются базы GeoData.",
+            "#C084FC"
+        ));
+
+        Cards.Add(new CoreCardViewModel(
+            "geodata",
+            "Базы правил GeoIP & GeoSite",
+            "Файлы маршрутизации (geoip.dat & geosite.dat)",
+            "Необходимы для работы ядра Xray-core и классической маршрутизации доменов и IP-адресов.",
+            "#FBBF24"
         ));
 
         Cards.Add(new CoreCardViewModel(
@@ -251,6 +298,8 @@ public partial class CoreManagerViewModel : ViewModelBase
             "#34D399"
         ));
 
+        UpdateActiveEngineStatus(vault.Settings.CoreType);
+
         StorageService.LogLevelChanged += levelId =>
         {
             if (_selectedLogLevel?.Id != levelId)
@@ -260,7 +309,34 @@ public partial class CoreManagerViewModel : ViewModelBase
             }
         };
 
+        StorageService.CoreTypeChanged += coreType =>
+        {
+            Dispatcher.UIThread.Post(() => UpdateActiveEngineStatus(coreType));
+        };
+
         _ = RefreshAllAsync();
+    }
+
+    public void UpdateActiveEngineStatus(string activeId)
+    {
+        foreach (var c in Cards)
+        {
+            var isCurrent = (c.CoreKey == "singbox" && (activeId == "sing-box" || activeId == "singbox" || activeId == "auto")) ||
+                            (c.CoreKey == "xray" && activeId == "xray");
+            c.IsActiveEngine = isCurrent;
+        }
+    }
+
+    [RelayCommand]
+    public void SetActiveEngine(string coreKey)
+    {
+        var targetId = coreKey == "xray" ? "xray" : "sing-box";
+        var vault = StorageService.Load();
+        vault.Settings.CoreType = targetId;
+        StorageService.Save(vault);
+        StorageService.NotifyCoreTypeChanged(targetId);
+        UpdateActiveEngineStatus(targetId);
+        ShowStatus($"Активное ядро переключено на {CoreEnginesCatalog.GetEngine(targetId).DisplayName}");
     }
 
     partial void OnSelectedLogLevelChanged(LogLevelOption value)

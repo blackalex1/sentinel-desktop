@@ -5,8 +5,9 @@
              x:Class="SentinelDesktop.Views.Dashboard.DashboardView"
              x:DataType="vm:DashboardViewModel">
 
-    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-        <StackPanel Spacing="22" Margin="32,16,32,28" MaxWidth="880" HorizontalAlignment="Stretch">
+    <Grid>
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="22" Margin="32,16,32,28" MaxWidth="880" HorizontalAlignment="Stretch">
 
             <!-- 0. MISSING CORE WARNING & ONE-CLICK DOWNLOAD BANNER -->
             <Border IsVisible="{Binding IsCoreMissing}"
@@ -41,19 +42,13 @@
             <Border Classes="glass-card" Padding="28,26" HorizontalAlignment="Stretch">
                 <StackPanel Spacing="16" HorizontalAlignment="Center">
                     <!-- Interactive 60 FPS Live Mecha Mascot Control -->
-                    <Button Command="{Binding ToggleConnectionCommand}"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            Padding="0"
-                            Cursor="Hand"
-                            HorizontalAlignment="Center">
-                        <controls:LiveMascotControl Width="220" Height="220"
-                                                    IsConnected="{Binding IsConnected}"
-                                                    IsConnecting="{Binding IsConnecting}"
-                                                    IsTunMode="{Binding IsTunMode}"
-                                                    IsSystemProxy="{Binding IsSystemProxy}"
-                                                    HorizontalAlignment="Center" />
-                    </Button>
+                    <controls:LiveMascotControl Width="220" Height="220"
+                                                Command="{Binding ToggleConnectionCommand}"
+                                                IsConnected="{Binding IsConnected}"
+                                                IsConnecting="{Binding IsConnecting}"
+                                                IsTunMode="{Binding IsTunMode}"
+                                                IsSystemProxy="{Binding IsSystemProxy}"
+                                                HorizontalAlignment="Center" />
 
                     <!-- Master Action Trigger Capsule -->
                     <Button Classes="hero-connect"
@@ -173,6 +168,37 @@
                                 </StackPanel>
                             </Button>
                         </Grid>
+
+                        <!-- Segmented Core Selector (Sing-box vs Xray) -->
+                        <Grid ColumnDefinitions="*,8,*">
+                            <Button Grid.Column="0"
+                                    Command="{Binding SetCoreEngineCommand}"
+                                    CommandParameter="sing-box"
+                                    Classes="segment-btn"
+                                    Classes.active="{Binding IsSingboxSelected}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    ToolTip.Tip="Ядро Sing-box (TUN, Reality, PortShield)">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <PathIcon Data="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" Width="11" Height="11" Foreground="#38BDF8" />
+                                    <TextBlock Text="Sing-box" FontSize="11" FontWeight="Bold" FontFamily="Consolas, monospace" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button Grid.Column="2"
+                                    Command="{Binding SetCoreEngineCommand}"
+                                    CommandParameter="xray"
+                                    Classes="segment-btn"
+                                    Classes.active="{Binding IsXraySelected}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    ToolTip.Tip="Ядро Xray-core (VLESS Reality, VMess, GeoData)">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <PathIcon Data="M13 10V3L4 14h7v7l9-11h-7z" Width="11" Height="11" Foreground="#C084FC" />
+                                    <TextBlock Text="Xray-core" FontSize="11" FontWeight="Bold" FontFamily="Consolas, monospace" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
                     </StackPanel>
                 </Border>
             </Grid>
@@ -180,8 +206,29 @@
             <!-- 3. PROMINENT SERVER CONSOLE CARD -->
             <Border Classes="glass-card" Padding="20,18">
                 <DockPanel>
-                    <Border Width="46" Height="46" CornerRadius="14" Background="#1E1B4B" BorderBrush="#8B5CF6" BorderThickness="1" Margin="0,0,16,0" DockPanel.Dock="Left">
-                        <PathIcon Data="M7 2v11h3v9l7-12h-4l4-8z" Width="20" Height="20" Foreground="#C084FC" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Border Width="46" Height="46" CornerRadius="14"
+                            Background="{Binding SelectedServer.BadgeBg, FallbackValue='#1E1B4B'}"
+                            BorderBrush="{Binding SelectedServer.BadgeBorder, FallbackValue='#8B5CF6'}"
+                            BorderThickness="1"
+                            Margin="0,0,16,0"
+                            DockPanel.Dock="Left"
+                            ToolTip.Tip="{Binding SelectedServer.BadgeToolTip, FallbackValue='Сервер не выбран'}">
+                        <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock IsVisible="{Binding SelectedServer.IsTextBadge, FallbackValue=False}"
+                                       Text="{Binding SelectedServer.BadgeText, FallbackValue=''}"
+                                       FontSize="14"
+                                       FontWeight="ExtraBold"
+                                       Foreground="{Binding SelectedServer.BadgeForeground, FallbackValue='#38BDF8'}"
+                                       FontFamily="Consolas, monospace"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center" />
+                            <PathIcon IsVisible="{Binding SelectedServer.IsIconBadge, FallbackValue=True}"
+                                      Data="{Binding SelectedServer.BadgeIcon, FallbackValue='M7 2v11h3v9l7-12h-4l4-8z'}"
+                                      Width="20" Height="20"
+                                      Foreground="{Binding SelectedServer.BadgeForeground, FallbackValue='#C084FC'}"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center" />
+                        </Grid>
                     </Border>
 
                     <!-- Right Change Server Button -->
@@ -201,9 +248,12 @@
                             <Border Background="#3B0764" BorderBrush="#A855F7" BorderThickness="1" CornerRadius="8" Padding="6,1">
                                 <TextBlock Text="{Binding SelectedServer.Protocol, FallbackValue='VLESS REALITY'}" FontSize="9" FontWeight="Bold" Foreground="#D8B4FE" FontFamily="Consolas, monospace" />
                             </Border>
-                            <Border Background="{Binding SelectedCoreEngine.BgColor}" BorderBrush="{Binding SelectedCoreEngine.Color}" BorderThickness="1" CornerRadius="8" Padding="6,1">
-                                <TextBlock Text="{Binding SelectedCoreEngine.DisplayName, StringFormat='Ядро: {0}'}" FontSize="9" FontWeight="Bold" Foreground="{Binding SelectedCoreEngine.Color}" FontFamily="Consolas, monospace" />
-                            </Border>
+                            <Button Command="{Binding GoToCoreManagerCommand}"
+                                    Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand" ToolTip.Tip="Нажмите для выбора / настройки ядер">
+                                <Border Background="{Binding SelectedCoreEngine.BgColor}" BorderBrush="{Binding SelectedCoreEngine.Color}" BorderThickness="1" CornerRadius="8" Padding="6,1">
+                                    <TextBlock Text="{Binding SelectedCoreEngine.DisplayName, StringFormat='Ядро: {0}'}" FontSize="9" FontWeight="Bold" Foreground="{Binding SelectedCoreEngine.Color}" FontFamily="Consolas, monospace" />
+                                </Border>
+                            </Button>
                         </StackPanel>
                         <TextBlock Text="{Binding SelectedServer.Name, FallbackValue='Сервер не выбран'}" FontSize="15" FontWeight="Bold" Foreground="White" />
                         <TextBlock Text="{Binding SelectedServer.Subtitle, FallbackValue='Нажмите для выбора сервера'}" FontSize="11" Foreground="#64748B" FontFamily="Consolas, monospace" />
@@ -213,4 +263,56 @@
 
         </StackPanel>
     </ScrollViewer>
+
+    <!-- MODAL ALERT POPUP NOTIFICATION -->
+    <Border IsVisible="{Binding HasAlert}"
+            Background="#99060A14"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch">
+        <Border Background="#121829"
+                BorderBrush="#F59E0B"
+                BorderThickness="1.5"
+                CornerRadius="18"
+                Padding="28,24"
+                MaxWidth="520"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                BoxShadow="0 16 48 0 #80000000">
+            <StackPanel Spacing="16">
+                <DockPanel>
+                    <!-- Warning Icon -->
+                    <Border Width="48" Height="48" CornerRadius="12" Background="#3B1E08" BorderBrush="#F59E0B" BorderThickness="1" Margin="0,0,16,0" DockPanel.Dock="Left">
+                        <PathIcon Data="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" Width="22" Height="22" Foreground="#FBBF24" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+
+                    <StackPanel Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding AlertTitle}" FontSize="13.5" FontWeight="ExtraBold" Foreground="#FBBF24" FontFamily="Consolas, monospace" />
+                        <TextBlock Text="{Binding AlertMessage}" FontSize="12" Foreground="#CBD5E1" TextWrapping="Wrap" LineHeight="18" />
+                    </StackPanel>
+                </DockPanel>
+
+                <!-- Action Buttons Row -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,6,0,0">
+                    <Button Command="{Binding DismissAlertCommand}"
+                            Background="#1E2638"
+                            Foreground="#94A3B8"
+                            Padding="16,8"
+                            CornerRadius="10"
+                            Cursor="Hand">
+                        <TextBlock Text="Закрыть" FontSize="11.5" FontWeight="SemiBold" />
+                    </Button>
+
+                    <Button Command="{Binding ExecuteAlertActionCommand}"
+                            Background="#D97706"
+                            Foreground="White"
+                            Padding="18,8"
+                            CornerRadius="10"
+                            Cursor="Hand">
+                        <TextBlock Text="{Binding AlertActionText}" FontSize="11.5" FontWeight="Bold" />
+                    </Button>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Border>
+</Grid>
 </UserControl>

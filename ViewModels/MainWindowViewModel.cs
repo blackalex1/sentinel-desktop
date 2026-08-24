@@ -1,6 +1,8 @@
+using System;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SentinelDesktop.Models;
+using SentinelDesktop.Services;
 
 namespace SentinelDesktop.ViewModels;
 
@@ -66,6 +68,17 @@ public partial class MainWindowViewModel : ViewModelBase
     public string ActiveCoreColor => Dashboard?.SelectedCoreEngine?.Color ?? "#38BDF8";
     public string ActiveCoreBg => Dashboard?.SelectedCoreEngine?.BgColor ?? "#082F49";
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(LockedTabOpacity))]
+    [NotifyPropertyChangedFor(nameof(IsCoreLocked))]
+    private bool _isCoreEngineReady = true;
+
+    [ObservableProperty]
+    private bool _isXrayActive;
+
+    public bool IsCoreLocked => !IsCoreEngineReady;
+    public double LockedTabOpacity => IsCoreEngineReady ? 1.0 : 0.4;
+
     public DashboardViewModel Dashboard { get; }
     public ServersViewModel Servers { get; }
     public RoutingViewModel Routing { get; }
@@ -85,8 +98,25 @@ public partial class MainWindowViewModel : ViewModelBase
         Logs = new LogsViewModel();
         _currentPage = Dashboard;
 
+        var vault = StorageService.Load();
+        IsXrayActive = vault.Settings.CoreType.Equals("xray", StringComparison.OrdinalIgnoreCase);
+
+        CheckCoreReadiness();
+
         Dashboard.RequestNavigateToCores += () => Navigate("cores");
         Dashboard.RequestNavigateToServers += () => Navigate("servers");
+        Servers.RequestNavigateToCores += () => Navigate("cores");
+
+        StorageService.CoreTypeChanged += coreType =>
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                IsXrayActive = coreType.Equals("xray", StringComparison.OrdinalIgnoreCase);
+                OnPropertyChanged(nameof(ActiveCoreDisplayName));
+                OnPropertyChanged(nameof(ActiveCoreColor));
+                OnPropertyChanged(nameof(ActiveCoreBg));
+            });
+        };
 
         Dashboard.PropertyChanged += (s, e) =>
         {
@@ -95,14 +125,41 @@ public partial class MainWindowViewModel : ViewModelBase
                 OnPropertyChanged(nameof(ActiveCoreDisplayName));
                 OnPropertyChanged(nameof(ActiveCoreColor));
                 OnPropertyChanged(nameof(ActiveCoreBg));
+                IsXrayActive = Dashboard?.SelectedCoreEngine?.Id == "xray";
+            }
+            if (e.PropertyName == nameof(Dashboard.IsCoreMissing))
+            {
+                CheckCoreReadiness();
             }
         };
+
+        CoreUpdateService.Instance.CoreInstalled += _ => Avalonia.Threading.Dispatcher.UIThread.Post(CheckCoreReadiness);
+    }
+
+    public void CheckCoreReadiness()
+    {
+        var vpnCoreInstalled = VpnCoreService.IsCoreBinaryInstalled();
+        var ffiCoreInstalled = SentinelCoreNative.IsAvailable();
+        IsCoreEngineReady = vpnCoreInstalled && ffiCoreInstalled;
     }
 
     [RelayCommand]
     private void Navigate(string page)
     {
-        ActivePage = page.ToLowerInvariant();
+        var target = page.ToLowerInvariant();
+        CheckCoreReadiness();
+
+        // Prevent opening locked tabs if required cores are missing
+        if (!IsCoreEngineReady && (target == "servers" || target == "routing" || target == "hotspot" || target == "connect" || target == "security" || target == "threats"))
+        {
+            Dashboard.AlertTitle = "ТРЕБУЕТСЯ ЗАГРУЗКА ЯДЕР";
+            Dashboard.AlertMessage = "Вкладки серверов, маршрутизации и безопасности заблокированы до установки ядер Sing-box и Sentinel FFI Engine.";
+            Dashboard.AlertActionText = "Скачать ядра →";
+            Dashboard.HasAlert = true;
+            target = "cores";
+        }
+
+        ActivePage = target;
         CurrentPage = ActivePage switch
         {
             "servers" => Servers,
@@ -113,5 +170,18 @@ public partial class MainWindowViewModel : ViewModelBase
             "logs" => Logs,
             _ => Dashboard
         };
+
+        if (target == "logs")
+        {
+            Logs.RefreshLogs();
+        }
+        else if (target == "servers")
+        {
+            Servers.LoadServers();
+        }
+        else if (target == "dashboard" || string.IsNullOrEmpty(target))
+        {
+            Dashboard.LoadInitialData();
+        }
     }
 }

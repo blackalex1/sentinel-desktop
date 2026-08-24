@@ -53,12 +53,31 @@ public partial class RoutingViewModel : ViewModelBase
     [ObservableProperty]
     private bool _hasStatusMessage;
 
+    [ObservableProperty]
+    private ObservableCollection<DnsPresetItemViewModel> _dnsPresets = new();
+
+    [ObservableProperty]
+    private DnsPresetItemViewModel? _selectedDnsPreset;
+
+    [ObservableProperty]
+    private string _customDnsInput = string.Empty;
+
+    [ObservableProperty]
+    private bool _isCustomDnsSelected;
+
+    [ObservableProperty]
+    private ObservableCollection<DnsResolverItem> _activeResolvers = new();
+
+    [ObservableProperty]
+    private bool _isDnsSavedFeedback;
+
     public int EnabledPresetsCount => Presets.Count(p => p.IsEnabled);
     public int CustomRulesCount => CustomRules.Count;
 
     public RoutingViewModel()
     {
         LoadData();
+        LoadDnsSettings();
     }
 
     public void LoadData()
@@ -441,6 +460,109 @@ public partial class RoutingViewModel : ViewModelBase
         }
     }
 
+    public void LoadDnsSettings()
+    {
+        var vault = StorageService.Load();
+        var selectedId = vault.Settings.SelectedDnsPresetId ?? "google";
+        CustomDnsInput = vault.Settings.CustomDnsServers ?? "https://dns.google/dns-query, 8.8.8.8, 8.8.4.4";
+
+        DnsPresets.Clear();
+        foreach (var p in DnsPresetsCatalog.Presets)
+        {
+            var isSel = p.Id.Equals(selectedId, StringComparison.OrdinalIgnoreCase);
+            var itemVm = new DnsPresetItemViewModel(p, isSel);
+            DnsPresets.Add(itemVm);
+            if (isSel)
+            {
+                SelectedDnsPreset = itemVm;
+                IsCustomDnsSelected = p.Id == "custom";
+            }
+        }
+
+        if (SelectedDnsPreset == null && DnsPresets.Count > 1)
+        {
+            SelectedDnsPreset = DnsPresets[1];
+            SelectedDnsPreset.IsSelected = true;
+        }
+
+        UpdateActiveResolvers();
+    }
+
+    [RelayCommand]
+    public void SelectDnsPreset(DnsPresetItemViewModel preset)
+    {
+        if (preset == null) return;
+        foreach (var p in DnsPresets)
+        {
+            p.IsSelected = p.Id == preset.Id;
+        }
+        SelectedDnsPreset = preset;
+        IsCustomDnsSelected = preset.Id == "custom";
+        UpdateActiveResolvers();
+    }
+
+    [RelayCommand]
+    public async Task SaveDnsSettingsAsync()
+    {
+        var vault = StorageService.Load();
+        var selectedId = SelectedDnsPreset?.Id ?? "google";
+        vault.Settings.SelectedDnsPresetId = selectedId;
+        vault.Settings.CustomDnsServers = CustomDnsInput;
+
+        var preset = DnsPresetsCatalog.GetPreset(selectedId);
+        if (preset.Id == "custom" && !string.IsNullOrWhiteSpace(CustomDnsInput))
+        {
+            var parts = SplitEntries(CustomDnsInput);
+            vault.Settings.DnsServer = parts.FirstOrDefault(p => !p.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) ?? "8.8.8.8";
+        }
+        else
+        {
+            vault.Settings.DnsServer = preset.DirectServer;
+        }
+
+        StorageService.Save(vault);
+        UpdateActiveResolvers();
+
+        IsDnsSavedFeedback = true;
+        ShowStatus("Настройки DNS сохранены и применены");
+
+        if (VpnCoreService.Instance.IsRunning)
+        {
+            await VpnCoreService.Instance.RestartWithNewSettingsAsync();
+        }
+
+        _ = Task.Delay(2500).ContinueWith(_ => IsDnsSavedFeedback = false);
+    }
+
+    private void UpdateActiveResolvers()
+    {
+        ActiveResolvers.Clear();
+        var selectedId = SelectedDnsPreset?.Id ?? "google";
+        var preset = DnsPresetsCatalog.GetPreset(selectedId);
+
+        List<string> serverList;
+        if (preset.Id == "custom" && !string.IsNullOrWhiteSpace(CustomDnsInput))
+        {
+            serverList = SplitEntries(CustomDnsInput);
+        }
+        else
+        {
+            serverList = preset.Servers;
+        }
+
+        foreach (var s in serverList)
+        {
+            var isDoh = s.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+            ActiveResolvers.Add(new DnsResolverItem
+            {
+                Protocol = isDoh ? "DOH" : "UDP",
+                Address = s,
+                BadgeColor = isDoh ? "#C084FC" : "#38BDF8",
+                BadgeBg = isDoh ? "#2E1065" : "#082F49"
+            });
+        }
+    }
+
     private static List<string> SplitEntries(string input)
     {
         if (string.IsNullOrWhiteSpace(input)) return new List<string>();
@@ -462,5 +584,41 @@ public partial class RoutingViewModel : ViewModelBase
                 StatusMessage = string.Empty;
             }
         });
+    }
+}
+
+public class DnsPresetItemViewModel : ObservableObject
+{
+    public DnsPresetOption Option { get; }
+    public string Id => Option.Id;
+    public string Title => Option.Title;
+    public string Subtitle => Option.Subtitle;
+    public string IconPath => Option.IconPath;
+
+    private bool _isSelected;
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (SetProperty(ref _isSelected, value))
+            {
+                OnPropertyChanged(nameof(BorderColor));
+                OnPropertyChanged(nameof(BackgroundColor));
+                OnPropertyChanged(nameof(TitleColor));
+                OnPropertyChanged(nameof(IconColor));
+            }
+        }
+    }
+
+    public string BorderColor => IsSelected ? "#8B5CF6" : "#1E2638";
+    public string BackgroundColor => IsSelected ? "#1E1B4B" : "#090D1C";
+    public string TitleColor => IsSelected ? "#FFFFFF" : "#E2E8F0";
+    public string IconColor => IsSelected ? "#38BDF8" : "#818CF8";
+
+    public DnsPresetItemViewModel(DnsPresetOption option, bool isSelected = false)
+    {
+        Option = option;
+        _isSelected = isSelected;
     }
 }

@@ -17,12 +17,16 @@ public class CoreUpdateService
     private static readonly Lazy<CoreUpdateService> _lazy = new(() => new CoreUpdateService());
     public static CoreUpdateService Instance => _lazy.Value;
 
+    public event Action<string>? CoreInstalled;
+
     private readonly HttpClient _httpClient;
 
     public static readonly Dictionary<string, (string Repo, string DisplayName, string ExeName)> Repositories = new()
     {
         { "singbox", ("SagerNet/sing-box", "Sing-box Core", "sing-box.exe") },
-        { "sentinel_core", ("blackalex1/sentinel-core", "Sentinel FFI Engine", "sentinel-core.dll") }
+        { "xray", ("XTLS/Xray-core", "Xray-core", "xray.exe") },
+        { "sentinel_core", ("blackalex1/sentinel-core", "Sentinel FFI Engine", "sentinel-core.dll") },
+        { "geodata", ("Loyalsoldier/v2ray-rules-dat", "Базы GeoIP & GeoSite (.dat)", "geosite.dat") }
     };
 
     private CoreUpdateService()
@@ -39,12 +43,32 @@ public class CoreUpdateService
         return binDir;
     }
 
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (string Version, DateTime LastModified, long Size)> _versionCache = new();
+
     public string DetectInstalledVersion(string coreKey)
     {
         try
         {
             var binDir = GetBinariesDirectory();
             var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+
+            if (coreKey == "geodata")
+            {
+                var geositePath = Path.Combine(binDir, "geosite.dat");
+                var geoipPath = Path.Combine(binDir, "geoip.dat");
+                if (!File.Exists(geositePath) && File.Exists(Path.Combine(baseDir, "geosite.dat")))
+                    geositePath = Path.Combine(baseDir, "geosite.dat");
+                if (!File.Exists(geoipPath) && File.Exists(Path.Combine(baseDir, "geoip.dat")))
+                    geoipPath = Path.Combine(baseDir, "geoip.dat");
+
+                if (!File.Exists(geositePath) || !File.Exists(geoipPath))
+                {
+                    return "Не установлено";
+                }
+
+                var writeTime = File.GetLastWriteTime(geositePath);
+                return "v." + writeTime.ToString("yyyy.MM.dd");
+            }
 
             if (coreKey == "sentinel_core")
             {
@@ -81,7 +105,16 @@ public class CoreUpdateService
                 return "Не установлено";
             }
 
-            var proc = new Process
+            // High-speed file cache check
+            var fi = new FileInfo(targetPath);
+            if (_versionCache.TryGetValue(targetPath, out var cached) &&
+                cached.LastModified == fi.LastWriteTimeUtc &&
+                cached.Size == fi.Length)
+            {
+                return cached.Version;
+            }
+
+            using var proc = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
@@ -89,14 +122,28 @@ public class CoreUpdateService
                     Arguments = "version",
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
+                    RedirectStandardError = true,
                     StandardOutputEncoding = Encoding.UTF8,
                     CreateNoWindow = true
                 }
             };
 
+            var outputBuilder = new StringBuilder();
+            proc.OutputDataReceived += (s, e) =>
+            {
+                if (e.Data != null) outputBuilder.AppendLine(e.Data);
+            };
+
             proc.Start();
-            var output = proc.StandardOutput.ReadToEnd();
-            proc.WaitForExit(1500);
+            proc.BeginOutputReadLine();
+
+            if (!proc.WaitForExit(600))
+            {
+                try { proc.Kill(true); } catch { }
+            }
+
+            var output = outputBuilder.ToString();
+            var finalVer = "Установлено";
 
             if (!string.IsNullOrWhiteSpace(output))
             {
@@ -104,25 +151,29 @@ public class CoreUpdateService
                 var match = Regex.Match(output, @"(?:Version:?\s*|version\s+|Xray\s+|^|\s)v?(\d+\.\d+(?:\.\d+)?)", RegexOptions.Multiline | RegexOptions.IgnoreCase);
                 if (match.Success)
                 {
-                    return $"v{match.Groups[1].Value}";
+                    finalVer = $"v{match.Groups[1].Value}";
                 }
-
-                var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-                foreach (var l in lines)
+                else
                 {
-                    var clean = l.Trim();
-                    if (!clean.Contains("░") && !clean.Contains("█") && clean.Length < 40)
+                    var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var l in lines)
                     {
-                        return clean;
+                        var clean = l.Trim();
+                        if (!clean.Contains("░") && !clean.Contains("█") && clean.Length < 40)
+                        {
+                            finalVer = clean;
+                            break;
+                        }
                     }
                 }
             }
 
-            return "Установлено (v. " + File.GetLastWriteTime(targetPath).ToString("dd.MM.yyyy") + ")";
+            _versionCache[targetPath] = (finalVer, fi.LastWriteTimeUtc, fi.Length);
+            return finalVer;
         }
-        catch (Exception ex)
+        catch
         {
-            return $"Не установлено ({ex.Message})";
+            return "Установлено";
         }
     }
 
@@ -175,6 +226,18 @@ public class CoreUpdateService
 
         var norm = coreKey.ToLowerInvariant();
 
+        if (norm == "geodata")
+        {
+            var zipAsset = assets.Find(a => a.Name.Equals("rules.zip", StringComparison.OrdinalIgnoreCase));
+            if (zipAsset != null) return zipAsset;
+
+            var geositeAsset = assets.Find(a => a.Name.Equals("geosite.dat", StringComparison.OrdinalIgnoreCase));
+            if (geositeAsset != null) return geositeAsset;
+
+            var geoipAsset = assets.Find(a => a.Name.Equals("geoip.dat", StringComparison.OrdinalIgnoreCase));
+            if (geoipAsset != null) return geoipAsset;
+        }
+
         if (norm == "sentinel_core")
         {
             foreach (var a in assets)
@@ -188,6 +251,20 @@ public class CoreUpdateService
                 if (a.Name.EndsWith(".dll") || a.Name.EndsWith(".zip")) return a;
             }
         }
+        else if (norm == "xray")
+        {
+            foreach (var a in assets)
+            {
+                var n = a.Name.ToLowerInvariant();
+                if (n.Contains("windows") && (n.Contains("64") || n.Contains("amd64") || n.Contains("x86_64")) && n.EndsWith(".zip"))
+                    return a;
+            }
+            foreach (var a in assets)
+            {
+                var n = a.Name.ToLowerInvariant();
+                if (n.Contains("windows") && n.EndsWith(".zip")) return a;
+            }
+        }
         else if (norm == "singbox")
         {
             foreach (var a in assets)
@@ -198,11 +275,10 @@ public class CoreUpdateService
             }
         }
 
-
         foreach (var a in assets)
         {
             var n = a.Name.ToLowerInvariant();
-            if (n.Contains("windows") || n.EndsWith(".zip") || n.EndsWith(".exe") || n.EndsWith(".dll"))
+            if (n.Contains("windows") || n.EndsWith(".zip") || n.EndsWith(".exe") || n.EndsWith(".dll") || n.EndsWith(".dat"))
                 return a;
         }
 
@@ -252,6 +328,7 @@ public class CoreUpdateService
 
         progress.Report((0.88, "Распаковка и установка компонентов..."));
         var binDir = GetBinariesDirectory();
+        var baseDir = AppDomain.CurrentDomain.BaseDirectory;
 
         if (asset.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
         {
@@ -276,15 +353,9 @@ public class CoreUpdateService
                     {
                         var dest = Path.Combine(binDir, fName);
                         File.Copy(file, dest, true);
-
-                        // If updating sentinel-core.dll, also place it in application root
-                        if (fName.Equals("sentinel-core.dll", StringComparison.OrdinalIgnoreCase))
+                        if (fName.EndsWith(".dat", StringComparison.OrdinalIgnoreCase) || fName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
                         {
-                            try
-                            {
-                                File.Copy(file, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, fName), true);
-                            }
-                            catch { }
+                            File.Copy(file, Path.Combine(baseDir, fName), true);
                         }
                     }
                 }
@@ -299,21 +370,32 @@ public class CoreUpdateService
             var expectedName = Repositories.TryGetValue(coreKey, out var repo) ? repo.ExeName : asset.Name;
             var destPath = Path.Combine(binDir, expectedName);
             File.Copy(tempZip, destPath, true);
-
-            if (expectedName.Equals("sentinel-core.dll", StringComparison.OrdinalIgnoreCase))
+            if (expectedName.EndsWith(".dat", StringComparison.OrdinalIgnoreCase))
             {
-                try
+                File.Copy(tempZip, Path.Combine(baseDir, expectedName), true);
+
+                // Auto-fetch the sibling .dat file if missing
+                var siblingName = expectedName.Equals("geosite.dat", StringComparison.OrdinalIgnoreCase) ? "geoip.dat" : "geosite.dat";
+                var siblingPath = Path.Combine(binDir, siblingName);
+                if (!File.Exists(siblingPath))
                 {
-                    File.Copy(tempZip, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, expectedName), true);
+                    try
+                    {
+                        var siblingUrl = $"https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/{siblingName}";
+                        var siblingBytes = await _httpClient.GetByteArrayAsync(siblingUrl);
+                        await File.WriteAllBytesAsync(siblingPath, siblingBytes);
+                        await File.WriteAllBytesAsync(Path.Combine(baseDir, siblingName), siblingBytes);
+                    }
+                    catch { }
                 }
-                catch { }
             }
         }
 
         try { File.Delete(tempZip); } catch { }
 
-        progress.Report((1.0, "Ядро успешно установлено и готово к работе!"));
-        LoggingService.Instance.LogApp($"Ядро {coreKey} успешно обновлено из GitHub релиза: {asset.Name}");
+        progress.Report((1.0, "Компоненты успешно установлены и готовы к работе!"));
+        LoggingService.Instance.LogApp($"Компонент {coreKey} успешно обновлен из GitHub релиза: {asset.Name}");
+        CoreInstalled?.Invoke(coreKey);
         return Path.Combine(binDir, Repositories[coreKey].ExeName);
     }
 }
