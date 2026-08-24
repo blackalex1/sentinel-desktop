@@ -7,6 +7,7 @@ dist/
 dist-ssr/
 build/bin/
 binaries/
+src-tauri/target/
 src-tauri/binaries/
 *.zip
 *.exe
@@ -42,5 +43,7 @@ Thumbs.db
 .pub/
 bin/
 obj/
+publish/
+publish_release/
 publish_out/
 dist/

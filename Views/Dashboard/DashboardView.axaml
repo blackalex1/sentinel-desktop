@@ -8,6 +8,35 @@
     <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
         <StackPanel Spacing="22" Margin="32,16,32,28" MaxWidth="880" HorizontalAlignment="Stretch">
 
+            <!-- 0. MISSING CORE WARNING & ONE-CLICK DOWNLOAD BANNER -->
+            <Border IsVisible="{Binding IsCoreMissing}"
+                    Background="#2A1608" BorderBrush="#F59E0B" BorderThickness="1.5"
+                    CornerRadius="14" Padding="18,14">
+                <DockPanel>
+                    <Border Width="40" Height="40" CornerRadius="10" Background="#451A03" BorderBrush="#F59E0B" BorderThickness="1" Margin="0,0,14,0" DockPanel.Dock="Left">
+                        <PathIcon Data="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" Width="18" Height="18" Foreground="#FBBF24" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+
+                    <Button Command="{Binding GoToCoreManagerCommand}"
+                            DockPanel.Dock="Right"
+                            Background="#D97706"
+                            Padding="14,8"
+                            CornerRadius="10"
+                            Cursor="Hand"
+                            VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <PathIcon Data="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z" Width="13" Height="13" Foreground="White" />
+                            <TextBlock Text="Скачать ядро" FontSize="11.5" FontWeight="Bold" Foreground="White" />
+                        </StackPanel>
+                    </Button>
+
+                    <StackPanel Spacing="3" VerticalAlignment="Center">
+                        <TextBlock Text="ТРЕБУЕТСЯ ЗАГРУЗКА ЯДРА" FontSize="10" FontWeight="Bold" Foreground="#FBBF24" FontFamily="Consolas, monospace" />
+                        <TextBlock Text="{Binding CoreMissingMessage}" FontSize="12" FontWeight="SemiBold" Foreground="White" TextWrapping="Wrap" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
             <!-- 1. HERO LIVE ANIMATED MECHA MASCOT COMMAND ARENA -->
             <Border Classes="glass-card" Padding="28,26" HorizontalAlignment="Stretch">
                 <StackPanel Spacing="16" HorizontalAlignment="Center">
@@ -157,9 +186,11 @@
 
                     <!-- Right Change Server Button -->
                     <Button Classes="segment-btn"
+                            Command="{Binding GoToServersCommand}"
                             DockPanel.Dock="Right"
                             Padding="14,8"
                             CornerRadius="10"
+                            Cursor="Hand"
                             VerticalAlignment="Center">
                         <TextBlock Text="Сменить узел →" FontSize="11" FontWeight="Bold" Foreground="#C084FC" />
                     </Button>

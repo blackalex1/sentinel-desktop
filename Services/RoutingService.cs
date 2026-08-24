@@ -108,10 +108,6 @@ public class RoutingService
     }
 
     private readonly Dictionary<string, BlockedAppItem> _quarantinedApps = new(StringComparer.OrdinalIgnoreCase);
-    private static readonly HashSet<string> WhitelistedApps = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "svchost.exe", "explorer.exe"
-    };
 
     public event Action? OnBlockedAppsChanged;
 

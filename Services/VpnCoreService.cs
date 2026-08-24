@@ -26,7 +26,20 @@ public class VpnCoreService
     private long _totalDown;
     private long _totalUp;
 
-    public bool IsRunning => _coreProcess != null && !_coreProcess.HasExited;
+    public bool IsRunning
+    {
+        get
+        {
+            try
+            {
+                return _coreProcess != null && !_coreProcess.HasExited;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
     public ServerProfile? ActiveServer { get; private set; }
     public AppSettings? ActiveSettings { get; private set; }
     public event Action<bool>? StateChanged;
@@ -38,6 +51,18 @@ public class VpnCoreService
         ActiveSettings.LogLevel = newLogLevel;
         LoggingService.Instance.LogApp($"⚡ Горячее переключение детализации логов ядра на '{newLogLevel}'...");
         await StartAsync(ActiveServer, ActiveSettings);
+    }
+
+    public static bool IsCoreBinaryInstalled(string coreType = "sing-box")
+    {
+        var resolvedCore = CoreEnginesCatalog.GetEngine(coreType);
+        var exeDir = AppDomain.CurrentDomain.BaseDirectory;
+        var coreExe = Path.Combine(exeDir, "binaries", resolvedCore.ExeName);
+        if (File.Exists(coreExe)) return true;
+        if (File.Exists(Path.Combine(exeDir, resolvedCore.ExeName))) return true;
+        if (File.Exists(Path.Combine(exeDir, "binaries", "sing-box.exe"))) return true;
+        if (File.Exists(Path.Combine(exeDir, "sing-box.exe"))) return true;
+        return false;
     }
 
     private VpnCoreService()
@@ -196,13 +221,14 @@ public class VpnCoreService
 
             if (!File.Exists(coreExe))
             {
-                LoggingService.Instance.LogApp($"Исполняемый файл ядра не найден по пути: {coreExe}", "WARN");
+                LoggingService.Instance.LogApp($"Исполняемый файл ядра ({resolvedCore.DisplayName}) не найден по пути: {coreExe}. Установите ядро во вкладке «Ядра».", "ERROR");
+                return false;
             }
 
             var args = $"run -c \"{configPath}\"";
 
             // Direct in-memory stdout/stderr pipe streaming with zero disk I/O
-            _coreProcess = new Process
+            var proc = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
@@ -218,7 +244,7 @@ public class VpnCoreService
                 }
             };
 
-            _coreProcess.OutputDataReceived += (s, e) =>
+            proc.OutputDataReceived += (s, e) =>
             {
                 if (!string.IsNullOrWhiteSpace(e.Data))
                 {
@@ -230,7 +256,7 @@ public class VpnCoreService
                 }
             };
 
-            _coreProcess.ErrorDataReceived += (s, e) =>
+            proc.ErrorDataReceived += (s, e) =>
             {
                 if (!string.IsNullOrWhiteSpace(e.Data))
                 {
@@ -242,18 +268,29 @@ public class VpnCoreService
                 }
             };
 
-            _coreProcess.EnableRaisingEvents = true;
-            _coreProcess.Exited += (s, e) =>
+            proc.EnableRaisingEvents = true;
+            proc.Exited += (s, e) =>
             {
                 LoggingService.Instance.LogApp($"Процесс ядра завершил работу (Код: {_coreProcess?.ExitCode})");
                 _trafficTimer.Stop();
                 StateChanged?.Invoke(false);
             };
 
-            _coreProcess.Start();
-            ChildProcessTracker.Track(_coreProcess);
-            _coreProcess.BeginOutputReadLine();
-            _coreProcess.BeginErrorReadLine();
+            try
+            {
+                proc.Start();
+                _coreProcess = proc;
+                ChildProcessTracker.Track(proc);
+                proc.BeginOutputReadLine();
+                proc.BeginErrorReadLine();
+            }
+            catch (Exception ex)
+            {
+                LoggingService.Instance.LogApp($"Ошибка старта процесса ядра: {ex.Message}", "ERROR");
+                try { proc.Dispose(); } catch { }
+                _coreProcess = null;
+                return false;
+            }
 
             _trafficTimer.Start();
             StateChanged?.Invoke(true);
