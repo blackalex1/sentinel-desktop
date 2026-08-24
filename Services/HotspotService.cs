@@ -32,11 +32,12 @@ public class HotspotService
     public static HotspotService Instance => _lazy.Value;
 
     private static readonly int[] CandidatePorts = { 18080, 18081, 18082, 19080, 19081 };
+    private static readonly int[] ProxyFallbackPorts = { 10808, 10809, 20808, 20809 };
     private readonly HttpClient _httpClient;
 
     private HotspotService()
     {
-        _httpClient = new HttpClient { Timeout = TimeSpan.FromMilliseconds(1800) };
+        _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
     }
 
     public async Task<List<string>> GetCandidateGatewaysAsync()
@@ -57,7 +58,11 @@ public class HotspotService
                     foreach (var gw in ipProps.GatewayAddresses)
                     {
                         var addr = gw.Address.ToString();
-                        if (!string.IsNullOrEmpty(addr) && !addr.StartsWith("0.0.0.0") && !addr.StartsWith("127."))
+                        // Keep only valid IPv4 non-loopback addresses
+                        if (!string.IsNullOrEmpty(addr) &&
+                            !addr.Contains(':') &&
+                            !addr.StartsWith("0.0.0.0") &&
+                            !addr.StartsWith("127."))
                         {
                             gateways.Add(addr);
                         }
@@ -73,7 +78,8 @@ public class HotspotService
                                 var lastDot = ipStr.LastIndexOf('.');
                                 if (lastDot != -1)
                                 {
-                                    gateways.Add($"{ipStr.Substring(0, lastDot)}.1");
+                                    var prefix = ipStr.Substring(0, lastDot);
+                                    gateways.Add($"{prefix}.1");
                                 }
                             }
                         }
@@ -82,36 +88,63 @@ public class HotspotService
             }
             catch { }
 
-            if (gateways.Count == 0)
+            // Common default mobile hotspot gateways
+            var defaults = new[] { "192.168.43.1", "172.20.10.1", "192.168.137.1", "192.168.80.1", "192.168.1.1" };
+            foreach (var d in defaults)
             {
-                gateways.Add("192.168.43.1");
-                gateways.Add("192.168.1.1");
-                gateways.Add("10.60.133.124");
+                gateways.Add(d);
             }
 
-            return gateways.ToList();
+            return gateways.Where(g => !g.Contains(':')).ToList();
         });
+    }
+
+    public async Task<HotspotDiscoveryResult> ScanAllGatewaysAsync(List<string> candidateGateways)
+    {
+        if (candidateGateways == null || candidateGateways.Count == 0)
+        {
+            candidateGateways = await GetCandidateGatewaysAsync();
+        }
+
+        var tasks = candidateGateways
+            .Where(ip => !string.IsNullOrWhiteSpace(ip) && !ip.Contains(':'))
+            .Select(ip => ProbePairingServerAsync(ip))
+            .ToList();
+
+        var results = await Task.WhenAll(tasks);
+        var found = results.FirstOrDefault(r => r.Found);
+        if (found != null)
+        {
+            return found;
+        }
+
+        return results.FirstOrDefault() ?? new HotspotDiscoveryResult
+        {
+            Found = false,
+            ErrorMessage = "Устройства с активной раздачей Sentinel не обнаружены в сети"
+        };
     }
 
     public async Task<HotspotDiscoveryResult> ProbePairingServerAsync(string targetIP)
     {
         var ip = targetIP.Trim();
-        if (string.IsNullOrWhiteSpace(ip))
+        if (string.IsNullOrWhiteSpace(ip) || ip.Contains(':'))
         {
             return new HotspotDiscoveryResult
             {
                 Found = false,
-                ErrorMessage = "Укажите корректный IP-адрес шлюза или телефона"
+                ErrorMessage = "Укажите корректный IPv4-адрес шлюза или телефона"
             };
         }
 
+        // 1. Probe HTTP Pairing Server
         foreach (var port in CandidatePorts)
         {
             try
             {
-                var pingUri = $"http://{ip}:{port}/pair/ping";
-                using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromMilliseconds(1500));
-                var response = await _httpClient.GetAsync(pingUri, cts.Token);
+                var configUri = $"http://{ip}:{port}/pair/config";
+                using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromMilliseconds(1200));
+                var response = await _httpClient.GetAsync(configUri, cts.Token);
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -123,6 +156,8 @@ public class HotspotService
                     var sPort = root.TryGetProperty("socksPort", out var sp) ? sp.GetInt32() : (root.TryGetProperty("port", out var p) ? p.GetInt32() : 10808);
                     var hPort = root.TryGetProperty("httpPort", out var hp) ? hp.GetInt32() : 10809;
                     var auth = root.TryGetProperty("authRequired", out var ar) && ar.GetBoolean();
+                    var user = root.TryGetProperty("username", out var u) ? u.GetString() : null;
+                    var pass = root.TryGetProperty("password", out var pw) ? pw.GetString() : null;
 
                     return new HotspotDiscoveryResult
                     {
@@ -132,18 +167,61 @@ public class HotspotService
                         ProxyType = pType,
                         SocksPort = sPort,
                         HttpPort = hPort,
-                        AuthRequired = auth
+                        AuthRequired = auth,
+                        Username = user,
+                        Password = pass
+                    };
+                }
+            }
+            catch { }
+
+            try
+            {
+                var pingUri = $"http://{ip}:{port}/pair/ping";
+                using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromMilliseconds(1000));
+                var response = await _httpClient.GetAsync(pingUri, cts.Token);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    return new HotspotDiscoveryResult
+                    {
+                        Found = true,
+                        GatewayIP = ip,
+                        PairingPort = port,
+                        ProxyType = "SOCKS5",
+                        SocksPort = 10808,
+                        HttpPort = 10809,
+                        AuthRequired = false
                     };
                 }
             }
             catch { }
         }
 
+        // 2. Direct TCP Fallback: Check if SOCKS5 or HTTP proxy is open on target IP
+        foreach (var pPort in ProxyFallbackPorts)
+        {
+            if (await TestTcpPortAsync(ip, pPort, 800))
+            {
+                var isHttp = pPort == 10809 || pPort == 20809;
+                return new HotspotDiscoveryResult
+                {
+                    Found = true,
+                    GatewayIP = ip,
+                    PairingPort = 18080,
+                    ProxyType = isHttp ? "HTTP" : "SOCKS5",
+                    SocksPort = pPort,
+                    HttpPort = pPort,
+                    AuthRequired = false
+                };
+            }
+        }
+
         return new HotspotDiscoveryResult
         {
             Found = false,
             GatewayIP = ip,
-            ErrorMessage = $"Телефон не отвечает на портах {string.Join(", ", CandidatePorts)}"
+            ErrorMessage = $"Телефон ({ip}) не отвечает на портах сопряжения и прокси"
         };
     }
 
@@ -155,6 +233,7 @@ public class HotspotService
             var payload = new
             {
                 pin = pin,
+                pinCode = pin,
                 clientName = "Sentinel Desktop Windows",
                 timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
             };
@@ -162,7 +241,8 @@ public class HotspotService
             var json = JsonSerializer.Serialize(payload);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(8));
+            // Allow up to 35 seconds for the user to confirm pairing on Android screen
+            using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(35));
             var response = await _httpClient.PostAsync(reqUri, content, cts.Token);
 
             if (response.IsSuccessStatusCode)
@@ -201,11 +281,63 @@ public class HotspotService
                 }
             }
 
+            // Fallback: If pairing server refused but proxy port is open, connect directly
+            if (await TestTcpPortAsync(ip, 10808, 1000))
+            {
+                var fallbackServer = new ServerProfile
+                {
+                    Id = $"hotspot-direct-{DateTime.Now.Ticks}",
+                    Name = $"Раздача с телефона ({ip})",
+                    Address = ip,
+                    Port = 10808,
+                    Protocol = "socks",
+                    Country = "LAN",
+                    IsSelected = true
+                };
+                return (true, fallbackServer, null);
+            }
+
             return (false, null, "Ошибка ответа сервера сопряжения на телефоне");
+        }
+        catch (OperationCanceledException)
+        {
+            // If pairing timed out on Android prompt, check if direct SOCKS5 port is active
+            if (await TestTcpPortAsync(ip, 10808, 1000))
+            {
+                var directServer = new ServerProfile
+                {
+                    Id = $"hotspot-direct-{DateTime.Now.Ticks}",
+                    Name = $"Раздача с телефона ({ip})",
+                    Address = ip,
+                    Port = 10808,
+                    Protocol = "socks",
+                    Country = "LAN",
+                    IsSelected = true
+                };
+                return (true, directServer, null);
+            }
+
+            return (false, null, "Время ожидания подтверждения на телефоне истекло (35 сек)");
         }
         catch (Exception ex)
         {
             return (false, null, $"Сбой подключения: {ex.Message}");
         }
+    }
+
+    private static async Task<bool> TestTcpPortAsync(string ip, int port, int timeoutMs = 1000)
+    {
+        try
+        {
+            using var tcp = new TcpClient();
+            var connectTask = tcp.ConnectAsync(ip, port);
+            var delayTask = Task.Delay(timeoutMs);
+            if (await Task.WhenAny(connectTask, delayTask) == connectTask && tcp.Connected)
+            {
+                return true;
+            }
+        }
+        catch { }
+        return false;
     }
 }
