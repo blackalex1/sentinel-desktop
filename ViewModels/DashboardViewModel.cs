@@ -65,6 +65,21 @@ public partial class DashboardViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(CoreProtocolWarning))]
     private CoreEngineOption _selectedCoreEngine = CoreEnginesCatalog.GetEngine("sing-box");
 
+    [ObservableProperty]
+    private bool _isCoreMissing;
+
+    [ObservableProperty]
+    private string _coreMissingMessage = string.Empty;
+
+    public event Action? RequestNavigateToCores;
+    public event Action? RequestNavigateToServers;
+
+    [RelayCommand]
+    public void GoToCoreManager() => RequestNavigateToCores?.Invoke();
+
+    [RelayCommand]
+    public void GoToServers() => RequestNavigateToServers?.Invoke();
+
     public List<CoreEngineOption> AvailableCoreEngines => CoreEnginesCatalog.AvailableEngines;
 
     public bool IsCoreProtocolCompatible => SelectedServer == null || SelectedCoreEngine.SupportsProtocol(SelectedServer.Protocol);
@@ -93,6 +108,20 @@ public partial class DashboardViewModel : ViewModelBase
         LoadInitialData();
     }
 
+    public void CheckCoreBinaryStatus()
+    {
+        var installed = VpnCoreService.IsCoreBinaryInstalled(SelectedCoreEngine.Id);
+        IsCoreMissing = !installed;
+        if (IsCoreMissing)
+        {
+            CoreMissingMessage = $"Ядро {SelectedCoreEngine.DisplayName} не найдено на этом ПК. Нажмите для перехода к скачиванию.";
+        }
+        else
+        {
+            CoreMissingMessage = string.Empty;
+        }
+    }
+
     private void LoadInitialData()
     {
         var vault = StorageService.Load();
@@ -104,6 +133,7 @@ public partial class DashboardViewModel : ViewModelBase
         IsTunMode = vault.Settings.IsTunMode;
         IsSystemProxy = vault.Settings.IsSystemProxy;
         SelectedCoreEngine = CoreEnginesCatalog.GetEngine(vault.Settings.CoreType);
+        CheckCoreBinaryStatus();
 
         Task.Run(() =>
         {
@@ -129,6 +159,7 @@ public partial class DashboardViewModel : ViewModelBase
         StorageService.Save(vault);
         OnPropertyChanged(nameof(IsCoreProtocolCompatible));
         OnPropertyChanged(nameof(CoreProtocolWarning));
+        CheckCoreBinaryStatus();
     }
 
     [RelayCommand]
@@ -141,6 +172,13 @@ public partial class DashboardViewModel : ViewModelBase
         else
         {
             if (SelectedServer == null) return;
+
+            CheckCoreBinaryStatus();
+            if (IsCoreMissing)
+            {
+                LoggingService.Instance.LogApp($"Невозможно запустить подключение: ядро {SelectedCoreEngine.DisplayName} не установлено. Скачайте его во вкладке «Ядра».", "WARN");
+                return;
+            }
 
             // If in TUN mode and not yet elevated, request UAC elevation for the application on demand
             if (IsTunMode && !VpnCoreService.IsAdministrator())
@@ -192,6 +230,16 @@ public partial class DashboardViewModel : ViewModelBase
     public async Task StartConnectionAsync()
     {
         if (SelectedServer == null) return;
+
+        CheckCoreBinaryStatus();
+        if (IsCoreMissing)
+        {
+            LoggingService.Instance.LogApp($"Невозможно запустить подключение: ядро {SelectedCoreEngine.DisplayName} не установлено. Скачайте его во вкладке «Ядра».", "WARN");
+            IsConnecting = false;
+            ConnectButtonText = "⚡ ПОДКЛЮЧИТЬ";
+            return;
+        }
+
         IsConnecting = true;
         ConnectButtonText = "⟳ ПОДКЛЮЧЕНИЕ...";
 

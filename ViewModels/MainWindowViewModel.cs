@@ -85,6 +85,9 @@ public partial class MainWindowViewModel : ViewModelBase
         Logs = new LogsViewModel();
         _currentPage = Dashboard;
 
+        Dashboard.RequestNavigateToCores += () => Navigate("cores");
+        Dashboard.RequestNavigateToServers += () => Navigate("servers");
+
         Dashboard.PropertyChanged += (s, e) =>
         {
             if (e.PropertyName == nameof(Dashboard.SelectedCoreEngine))

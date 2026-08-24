@@ -44,7 +44,8 @@ public class HotspotService
     {
         return await Task.Run(() =>
         {
-            var gateways = new HashSet<string>();
+            var wifiGateways = new List<string>();
+            var otherGateways = new List<string>();
 
             try
             {
@@ -54,33 +55,39 @@ public class HotspotService
                     if (iface.OperationalStatus != OperationalStatus.Up) continue;
                     if (iface.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
 
+                    var name = iface.Name.ToLowerInvariant();
+                    var desc = iface.Description.ToLowerInvariant();
+
+                    // Filter out known virtual / VM / VPN adapters
+                    bool isVirtual = name.Contains("vmware") || desc.Contains("vmware") ||
+                                     name.Contains("virtualbox") || desc.Contains("virtualbox") ||
+                                     name.Contains("hyper-v") || desc.Contains("hyper-v") ||
+                                     name.Contains("vethernet") || desc.Contains("vethernet") ||
+                                     name.Contains("wsl") || desc.Contains("wsl") ||
+                                     name.Contains("tun") || desc.Contains("tun") ||
+                                     name.Contains("tap") || desc.Contains("tap") ||
+                                     name.Contains("wintun") || desc.Contains("wintun");
+
+                    bool isWifi = iface.NetworkInterfaceType == NetworkInterfaceType.Wireless80211 ||
+                                  name.Contains("wi-fi") || name.Contains("wifi") ||
+                                  name.Contains("беспроводн") || desc.Contains("wireless") || desc.Contains("wi-fi");
+
                     var ipProps = iface.GetIPProperties();
                     foreach (var gw in ipProps.GatewayAddresses)
                     {
                         var addr = gw.Address.ToString();
-                        // Keep only valid IPv4 non-loopback addresses
                         if (!string.IsNullOrEmpty(addr) &&
                             !addr.Contains(':') &&
                             !addr.StartsWith("0.0.0.0") &&
                             !addr.StartsWith("127."))
                         {
-                            gateways.Add(addr);
-                        }
-                    }
-
-                    foreach (var u in ipProps.UnicastAddresses)
-                    {
-                        if (u.Address.AddressFamily == AddressFamily.InterNetwork)
-                        {
-                            var ipStr = u.Address.ToString();
-                            if (ipStr.StartsWith("192.168.") || ipStr.StartsWith("10.") || ipStr.StartsWith("172."))
+                            if (isWifi && !wifiGateways.Contains(addr))
                             {
-                                var lastDot = ipStr.LastIndexOf('.');
-                                if (lastDot != -1)
-                                {
-                                    var prefix = ipStr.Substring(0, lastDot);
-                                    gateways.Add($"{prefix}.1");
-                                }
+                                wifiGateways.Add(addr);
+                            }
+                            else if (!isVirtual && !otherGateways.Contains(addr))
+                            {
+                                otherGateways.Add(addr);
                             }
                         }
                     }
@@ -88,14 +95,19 @@ public class HotspotService
             }
             catch { }
 
-            // Common default mobile hotspot gateways
-            var defaults = new[] { "192.168.43.1", "172.20.10.1", "192.168.137.1", "192.168.80.1", "192.168.1.1" };
-            foreach (var d in defaults)
+            var result = new List<string>();
+            result.AddRange(wifiGateways);
+            foreach (var og in otherGateways)
             {
-                gateways.Add(d);
+                if (!result.Contains(og)) result.Add(og);
             }
 
-            return gateways.Where(g => !g.Contains(':')).ToList();
+            if (result.Count == 0)
+            {
+                result.Add("192.168.43.1");
+            }
+
+            return result;
         });
     }
 
@@ -262,13 +274,13 @@ public class HotspotService
                     var server = new ServerProfile
                     {
                         Id = $"hotspot-{DateTime.Now.Ticks}",
-                        Name = $"Раздача с телефона ({ip})",
+                        Name = $"Sentinel Hotspot ({ip})",
                         Address = ip,
                         Port = socksPort,
                         Protocol = proto == "http" ? "http" : "socks",
                         Username = user,
                         Password = pass,
-                        Country = "LAN",
+                        Country = "HOTSPOT",
                         IsSelected = true
                     };
 
@@ -287,11 +299,11 @@ public class HotspotService
                 var fallbackServer = new ServerProfile
                 {
                     Id = $"hotspot-direct-{DateTime.Now.Ticks}",
-                    Name = $"Раздача с телефона ({ip})",
+                    Name = $"Sentinel Hotspot ({ip})",
                     Address = ip,
                     Port = 10808,
                     Protocol = "socks",
-                    Country = "LAN",
+                    Country = "HOTSPOT",
                     IsSelected = true
                 };
                 return (true, fallbackServer, null);
@@ -307,11 +319,11 @@ public class HotspotService
                 var directServer = new ServerProfile
                 {
                     Id = $"hotspot-direct-{DateTime.Now.Ticks}",
-                    Name = $"Раздача с телефона ({ip})",
+                    Name = $"Sentinel Hotspot ({ip})",
                     Address = ip,
                     Port = 10808,
                     Protocol = "socks",
-                    Country = "LAN",
+                    Country = "HOTSPOT",
                     IsSelected = true
                 };
                 return (true, directServer, null);
