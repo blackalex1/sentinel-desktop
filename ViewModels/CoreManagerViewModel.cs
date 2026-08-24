@@ -197,6 +197,11 @@ public partial class CoreCardViewModel : ObservableObject
         var tClean = Regex.Replace(tag.Trim().ToLowerInvariant(), @"^[^\d]+", "");
         var iClean = Regex.Replace(installed.Trim().ToLowerInvariant(), @"^[^\d]+", "");
 
+        if (string.IsNullOrWhiteSpace(iClean) && installed.Trim().Equals("dev", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
         if (string.IsNullOrWhiteSpace(tClean) || string.IsNullOrWhiteSpace(iClean)) return false;
 
         return tClean == iClean || tClean.StartsWith(iClean) || iClean.StartsWith(tClean);
