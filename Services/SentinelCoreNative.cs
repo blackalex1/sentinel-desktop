@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using SentinelDesktop.Models;
 
 namespace SentinelDesktop.Services;
@@ -23,9 +24,9 @@ public static class SentinelCoreNative
                     var baseDir = AppDomain.CurrentDomain.BaseDirectory;
                     var candidates = new[]
                     {
-                        Path.Combine(baseDir, "sentinel-core.dll"),
                         Path.Combine(baseDir, "binaries", "sentinel-core.dll"),
-                        Path.Combine(baseDir, "binaries", "sentinel-core-windows-amd64.dll")
+                        Path.Combine(baseDir, "binaries", "sentinel-core-windows-amd64.dll"),
+                        Path.Combine(baseDir, "sentinel-core.dll")
                     };
 
                     foreach (var path in candidates)
@@ -65,6 +66,12 @@ public static class SentinelCoreNative
 
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "SentinelGetUnifiedTraffic")]
     private static extern IntPtr _GetUnifiedTraffic();
+
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "SentinelGetRealtimeTraffic")]
+    private static extern IntPtr _GetRealtimeTraffic(IntPtr clashAddr);
+
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "SentinelResetRealtimeTraffic")]
+    private static extern IntPtr _ResetRealtimeTraffic();
 
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "SentinelPopLogLine")]
     private static extern IntPtr _PopLogLine(IntPtr core, int timeoutMs);
@@ -144,23 +151,81 @@ public static class SentinelCoreNative
         }
     }
 
+    public static bool IsAvailable()
+    {
+        var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+        var candidates = new[]
+        {
+            Path.Combine(baseDir, "binaries", "sentinel-core.dll"),
+            Path.Combine(baseDir, "binaries", "sentinel-core-windows-amd64.dll"),
+            Path.Combine(baseDir, "sentinel-core.dll")
+        };
+
+        foreach (var path in candidates)
+        {
+            if (File.Exists(path))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static string ParseUri(string uri)
     {
         var uPtr = StringToPtr(uri);
         try
         {
             var resPtr = _ParseURI(uPtr);
-            return PtrToStringAndFree(resPtr);
+            var result = PtrToStringAndFree(resPtr);
+            if (!string.IsNullOrEmpty(result))
+            {
+                return result;
+            }
+        }
+        catch (DllNotFoundException)
+        {
+            return "{\"error\":\"DLL_NOT_FOUND: Нативная библиотека ядра sentinel-core.dll не найдена. Установите её во вкладке «Ядра».\"}";
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[SentinelCoreNative] ParseUri error: {ex.Message}");
             return $"{{\"error\":\"{ex.Message}\"}}";
         }
         finally
         {
             Marshal.FreeHGlobal(uPtr);
         }
+
+        return "{\"error\":\"Не удалось распарсить ссылку через ядро Sentinel-Core\"}";
+    }
+
+    public static string GenerateUri(ServerProfile profile)
+    {
+        try
+        {
+            var options = new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+            var json = JsonSerializer.Serialize(profile, options);
+            var jPtr = StringToPtr(json);
+            try
+            {
+                var resPtr = _GenerateURI(jPtr);
+                var resJson = PtrToStringAndFree(resPtr);
+                if (!string.IsNullOrEmpty(resJson))
+                {
+                    using var doc = JsonDocument.Parse(resJson);
+                    if (doc.RootElement.TryGetProperty("uri", out var u))
+                    {
+                        return u.GetString() ?? string.Empty;
+                    }
+                }
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(jPtr);
+            }
+        }
+        catch { }
+        return string.Empty;
     }
 
     public static int TestPing(string host, int port, int timeoutMs = 2000)
@@ -231,6 +296,30 @@ public static class SentinelCoreNative
         {
             return "{\"down\":0,\"up\":0}";
         }
+    }
+
+    public static string GetRealtimeTraffic(string clashAddr = "127.0.0.1:9090")
+    {
+        var addrPtr = StringToPtr(clashAddr);
+        try
+        {
+            var resPtr = _GetRealtimeTraffic(addrPtr);
+            return PtrToStringAndFree(resPtr);
+        }
+        catch
+        {
+            return "{}";
+        }
+    }
+
+    public static void ResetRealtimeTraffic()
+    {
+        try
+        {
+            var resPtr = _ResetRealtimeTraffic();
+            PtrToStringAndFree(resPtr);
+        }
+        catch { }
     }
 
     public static List<PortShieldRule> GetPortShieldCatalog(string lang = "ru")

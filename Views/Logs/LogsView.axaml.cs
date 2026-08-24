@@ -6,12 +6,12 @@ namespace SentinelDesktop.Views.Logs;
 
 public partial class LogsView : UserControl
 {
-    private ScrollViewer? _scrollViewer;
+    private ListBox? _listBox;
 
     public LogsView()
     {
         InitializeComponent();
-        _scrollViewer = this.FindControl<ScrollViewer>("LogsScrollViewer");
+        _listBox = this.FindControl<ListBox>("LogsListBox");
 
         DataContextChanged += (s, e) =>
         {
@@ -19,9 +19,17 @@ public partial class LogsView : UserControl
             {
                 vm.DisplayLogs.CollectionChanged += (sender, args) =>
                 {
-                    if (vm.AutoScroll && _scrollViewer != null)
+                    if (vm.AutoScroll && _listBox != null && vm.DisplayLogs.Count > 0)
                     {
-                        Dispatcher.UIThread.Post(() => _scrollViewer.ScrollToEnd(), DispatcherPriority.Background);
+                        Dispatcher.UIThread.Post(() =>
+                        {
+                            try
+                            {
+                                var last = vm.DisplayLogs[^1];
+                                _listBox.ScrollIntoView(last);
+                            }
+                            catch { }
+                        }, DispatcherPriority.Background);
                     }
                 };
             }

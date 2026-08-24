@@ -44,6 +44,10 @@ Thumbs.db
 bin/
 obj/
 publish/
+publish_new/
 publish_release/
 publish_out/
 dist/
+data/
+logs/
+scratch/

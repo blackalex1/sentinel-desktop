@@ -118,9 +118,25 @@ public partial class SecurityViewModel : ViewModelBase
     public bool IsIncidentsTabActive => SelectedTab == "INCIDENTS";
     public bool IsBlockedAppsTabActive => SelectedTab == "BLOCKED_APPS";
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsSecurityEnabled))]
+    [NotifyPropertyChangedFor(nameof(SecurityControlsOpacity))]
+    private bool _isXrayActive;
+
+    public bool IsSecurityEnabled => !IsXrayActive;
+    public double SecurityControlsOpacity => IsXrayActive ? 0.35 : 1.0;
+
     public SecurityViewModel()
     {
         LoadData();
+
+        StorageService.CoreTypeChanged += coreType =>
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                IsXrayActive = coreType.Equals("xray", StringComparison.OrdinalIgnoreCase);
+            });
+        };
 
         SecurityService.Instance.OnThreatDetected += incident =>
         {
@@ -157,6 +173,9 @@ public partial class SecurityViewModel : ViewModelBase
 
     private void LoadData()
     {
+        var vault = StorageService.Load();
+        IsXrayActive = vault.Settings.CoreType.Equals("xray", StringComparison.OrdinalIgnoreCase);
+
         var rules = SecurityService.Instance.GetPortRules();
         PortRules.Clear();
         foreach (var r in rules)

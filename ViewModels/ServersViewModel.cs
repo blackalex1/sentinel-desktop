@@ -30,30 +30,80 @@ public partial class ServersViewModel : ViewModelBase
     private string _importUriText = string.Empty;
 
     [ObservableProperty]
+    private bool _isEditOpen;
+
+    [ObservableProperty]
+    private ServerProfile? _editingServer;
+
+    [ObservableProperty]
+    private ServerProfile? _targetOriginalServer;
+
+    [ObservableProperty]
+    private string _generatedUriPreview = string.Empty;
+
+    public string[] AvailableProtocols { get; } = ["vless", "trojan", "hysteria2", "shadowsocks", "vmess", "tuic"];
+    public string[] AvailableSecurities { get; } = ["reality", "tls", "none"];
+    public string[] AvailableFingerprints { get; } = ["chrome", "firefox", "safari", "ios", "edge", "randomized"];
+    public string[] AvailableTransports { get; } = ["tcp", "ws", "grpc", "http", "quic"];
+
+    [ObservableProperty]
     private string _statusMessage = string.Empty;
 
     [ObservableProperty]
     private bool _hasStatusMessage;
 
+    [ObservableProperty]
+    private bool _isCoreMissing;
+
+    public event Action? RequestNavigateToCores;
+
+    [RelayCommand]
+    public void GoToCoreManager() => RequestNavigateToCores?.Invoke();
+
     public int TotalServersCount => Servers.Count;
 
     public ServersViewModel()
     {
+        CheckCoreStatus();
         LoadServers();
         StorageService.ServersChanged += () =>
         {
             Avalonia.Threading.Dispatcher.UIThread.Post(LoadServers);
         };
+        CoreUpdateService.Instance.CoreInstalled += _ =>
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(CheckCoreStatus);
+        };
+    }
+
+    public void CheckCoreStatus()
+    {
+        IsCoreMissing = !SentinelCoreNative.IsAvailable();
     }
 
     public void LoadServers()
     {
         var vault = StorageService.Load();
         Servers.Clear();
+        bool needsSave = false;
         foreach (var s in vault.Servers)
         {
+            if (string.IsNullOrEmpty(s.Country) || s.Country == "AUTO")
+            {
+                var inferred = ServerProfile.InferCountry(s.Name, s.Address, s.Sni, s.Host);
+                if (inferred != "AUTO" && inferred != s.Country)
+                {
+                    s.Country = inferred;
+                    needsSave = true;
+                }
+            }
             s.IsSelected = (s.Id == vault.SelectedServerId);
             Servers.Add(s);
+        }
+
+        if (needsSave)
+        {
+            StorageService.Save(vault, notifyServers: false);
         }
 
         if (Servers.Count > 0)
@@ -149,6 +199,81 @@ public partial class ServersViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    public void OpenEditDialog(ServerProfile server)
+    {
+        TargetOriginalServer = server;
+        EditingServer = server.Clone();
+        UpdateUriPreview();
+        IsEditOpen = true;
+        IsImportOpen = false;
+    }
+
+    [RelayCommand]
+    public void CloseEditDialog()
+    {
+        IsEditOpen = false;
+        EditingServer = null;
+        TargetOriginalServer = null;
+    }
+
+    [RelayCommand]
+    public void UpdateUriPreview()
+    {
+        if (EditingServer != null)
+        {
+            GeneratedUriPreview = SentinelCoreNative.GenerateUri(EditingServer);
+        }
+    }
+
+    [RelayCommand]
+    public async Task CopyGeneratedUriAsync()
+    {
+        if (string.IsNullOrEmpty(GeneratedUriPreview)) return;
+        try
+        {
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop &&
+                desktop.MainWindow?.Clipboard != null)
+            {
+                await desktop.MainWindow.Clipboard.SetTextAsync(GeneratedUriPreview);
+                ShowStatus("Ссылка конфигурации скопирована в буфер обмена");
+            }
+        }
+        catch { }
+    }
+
+    [RelayCommand]
+    public void SaveEditedServer()
+    {
+        if (EditingServer == null || TargetOriginalServer == null) return;
+
+        if (string.IsNullOrWhiteSpace(EditingServer.Address))
+        {
+            ShowStatus("⚠️ Ошибка: укажите хост или IP-адрес сервера");
+            return;
+        }
+
+        if (EditingServer.Port <= 0 || EditingServer.Port > 65535)
+        {
+            ShowStatus("⚠️ Ошибка: порт должен быть от 1 до 65535");
+            return;
+        }
+
+        TargetOriginalServer.CopyFrom(EditingServer);
+
+        if (SelectedServer?.Id == TargetOriginalServer.Id)
+        {
+            SelectedServer.CopyFrom(EditingServer);
+        }
+
+        SaveVault();
+        IsEditOpen = false;
+        ShowStatus($"Подключение «{TargetOriginalServer.Name}» успешно сохранено");
+
+        // Test ping with updated parameters
+        _ = PingSingleAsync(TargetOriginalServer);
+    }
+
+    [RelayCommand]
     public async Task PasteFromClipboardAsync()
     {
         try
@@ -176,18 +301,49 @@ public partial class ServersViewModel : ViewModelBase
             return;
         }
 
+        if (!SentinelCoreNative.IsAvailable())
+        {
+            ShowStatus("⚠️ Нативное ядро Sentinel FFI Engine (sentinel-core.dll) не найдено. Скачайте его во вкладке «Ядра».");
+            LoggingService.Instance.LogApp("Попытка импорта ссылки без загруженного ядра sentinel-core.dll", "WARN");
+            return;
+        }
+
         var lines = ImportUriText.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
         int addedCount = 0;
+        string lastError = string.Empty;
 
         foreach (var line in lines)
         {
             var trimmed = line.Trim();
             if (string.IsNullOrEmpty(trimmed) || !trimmed.Contains("://")) continue;
 
-            // Core Parsing via FFI
+            // Core Parsing via Native FFI Engine
             var parsedJson = SentinelCoreNative.ParseUri(trimmed);
-            if (!string.IsNullOrEmpty(parsedJson) && !parsedJson.StartsWith("{\"error\""))
+            if (!string.IsNullOrEmpty(parsedJson))
             {
+                if (parsedJson.Contains("DLL_NOT_FOUND"))
+                {
+                    ShowStatus("⚠️ Нативное ядро sentinel-core.dll не установлено. Скачайте его во вкладке «Ядра».");
+                    return;
+                }
+
+                if (parsedJson.StartsWith("{\"error\""))
+                {
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(parsedJson);
+                        if (doc.RootElement.TryGetProperty("error", out var errProp))
+                        {
+                            lastError = errProp.GetString() ?? "Ошибка парсинга";
+                        }
+                    }
+                    catch
+                    {
+                        lastError = "Неверный формат ссылки";
+                    }
+                    continue;
+                }
+
                 try
                 {
                     var srv = JsonSerializer.Deserialize<ServerProfile>(parsedJson);
@@ -195,16 +351,10 @@ public partial class ServersViewModel : ViewModelBase
                     {
                         srv.Id = "srv-" + Guid.NewGuid().ToString("N");
                         
-                        // Infer country from name or address
+                        // Infer country from name, address, SNI or host
                         if (string.IsNullOrEmpty(srv.Country) || srv.Country == "AUTO")
                         {
-                            var upper = srv.Name.ToUpperInvariant();
-                            if (upper.Contains("DE") || upper.Contains("GERMAN")) srv.Country = "DE";
-                            else if (upper.Contains("NL") || upper.Contains("NETHERLAND")) srv.Country = "NL";
-                            else if (upper.Contains("US") || upper.Contains("USA")) srv.Country = "US";
-                            else if (upper.Contains("FI") || upper.Contains("FIN")) srv.Country = "FI";
-                            else if (upper.Contains("RU") || upper.Contains("RUSS")) srv.Country = "RU";
-                            else srv.Country = "AUTO";
+                            srv.Country = ServerProfile.InferCountry(srv.Name, srv.Address, srv.Sni, srv.Host);
                         }
 
                         Servers.Add(srv);
@@ -213,6 +363,7 @@ public partial class ServersViewModel : ViewModelBase
                 }
                 catch (Exception ex)
                 {
+                    lastError = ex.Message;
                     Console.WriteLine($"[ImportUri] JSON error: {ex.Message}");
                 }
             }
@@ -231,16 +382,18 @@ public partial class ServersViewModel : ViewModelBase
         }
         else
         {
-            ShowStatus("Ошибка парсинга ядра: не удалось распознать ссылку");
+            ShowStatus(!string.IsNullOrEmpty(lastError) 
+                ? $"⚠️ {lastError}" 
+                : "⚠️ Ошибка парсинга ядра: не удалось распознать ссылку (vless, vmess, trojan, ss, hy2)");
         }
     }
 
-    private void SaveVault()
+    private void SaveVault(bool notify = true)
     {
         var vault = StorageService.Load();
         vault.Servers = Servers.ToList();
         vault.SelectedServerId = SelectedServer?.Id;
-        StorageService.Save(vault);
+        StorageService.Save(vault, notifyServers: notify);
     }
 
     private void ShowStatus(string msg)

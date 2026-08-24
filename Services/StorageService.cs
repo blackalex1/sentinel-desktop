@@ -19,11 +19,17 @@ public class StorageService
     }
 
     public static event Action<string>? LogLevelChanged;
+    public static event Action<string>? CoreTypeChanged;
     public static event Action? ServersChanged;
 
     public static void NotifyLogLevelChanged(string levelId)
     {
         LogLevelChanged?.Invoke(levelId);
+    }
+
+    public static void NotifyCoreTypeChanged(string coreType)
+    {
+        CoreTypeChanged?.Invoke(coreType);
     }
 
     public static void NotifyServersChanged()
@@ -45,7 +51,7 @@ public class StorageService
             // Remove legacy mock demo servers if present
             if (vault.Servers != null && vault.Servers.RemoveAll(s => s.Id == "demo-1" || s.Id == "demo-2") > 0)
             {
-                Save(vault);
+                Save(vault, notifyServers: false);
             }
 
             return vault;
@@ -56,13 +62,17 @@ public class StorageService
         }
     }
 
-    public static void Save(VaultData vault)
+    public static void Save(VaultData vault, bool notifyServers = false)
     {
         try
         {
             Directory.CreateDirectory(DataDir);
             var json = JsonSerializer.Serialize(vault, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(ConfigPath, json);
+            if (notifyServers)
+            {
+                NotifyServersChanged();
+            }
         }
         catch (Exception ex)
         {
