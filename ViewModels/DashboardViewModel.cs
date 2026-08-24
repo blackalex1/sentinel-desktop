@@ -85,6 +85,10 @@ public partial class DashboardViewModel : ViewModelBase
 
         VpnCoreService.Instance.StateChanged += OnVpnStateChanged;
         VpnCoreService.Instance.TrafficUpdated += OnTrafficUpdated;
+        StorageService.ServersChanged += () =>
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(LoadInitialData);
+        };
 
         LoadInitialData();
     }
