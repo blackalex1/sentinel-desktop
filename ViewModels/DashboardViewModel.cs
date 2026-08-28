@@ -42,10 +42,10 @@ public partial class DashboardViewModel : ViewModelBase
     private string _totalUpload = "0 MB";
 
     [ObservableProperty]
-    private string _publicIp = "127.0.0.1";
+    private string _publicIp = "—";
 
     [ObservableProperty]
-    private string _country = "RU";
+    private string _country = "—";
 
     [ObservableProperty]
     private string _pingDisplay = "— ms";
