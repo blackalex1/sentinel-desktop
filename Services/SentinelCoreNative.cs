@@ -282,7 +282,7 @@ public static class SentinelCoreNative
             }
         }
         catch { }
-        return ("127.0.0.1", "RU");
+        return ("", "");
     }
 
     public static string GetUnifiedTraffic()
