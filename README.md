@@ -12,7 +12,7 @@
    - **Hysteria 2** (`hysteria.exe`) — высокоскоростной UDP-протокол для обхода блокировок.
 
 2. **Загрузчик версий с GitHub (Releases & Pre-Releases)**:
-   - Скачивание и обновление всех 3 ядер прямо из официальных репозиториев GitHub (`XTLS/Xray-core`, `SagerNet/sing-box`, `apernet/hysteria`).
+   - Скачивание и обновление всех 3 ядер прямо из официальных репозиториев GitHub (`XTLS/Xray-core`, `SagerNet/sing-box`, `HyNetworks/hysteria`).
    - Переключатель отображения **Pre-release (Бета/Nightly)** версий.
 
 3. **Совместимость с sentinel-mobile (Android Hotspot Proxy)**:
