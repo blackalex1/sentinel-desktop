@@ -22,7 +22,7 @@ public static class CoreConfigBuilder
         var isXray = resolvedCore.Id == "xray";
         var modeStr = settings.IsTunMode ? "desktop_tun" : "system_proxy";
 
-        var dataDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data");
+        var dataDir = CoreEnvironmentService.GetDataDirectory();
         Directory.CreateDirectory(dataDir);
         var configPath = Path.Combine(dataDir, "running_config.json");
 
@@ -47,10 +47,14 @@ public static class CoreConfigBuilder
             directServer = dnsPreset.DirectServer;
         }
 
+        var coreExe = CoreEnvironmentService.ResolveCoreExecutable(resolvedCore, isXray);
+        var coreVersion = CoreEnvironmentService.GetCoreVersion(coreExe, isXray);
+
         // Pure Intent Specification for sentinel-core Go compiler
         var spec = new
         {
             targetCore = resolvedCore.TargetCoreAst,
+            coreVersion = coreVersion,
             logLevel = coreLogLevel,
             clashApiAddress = "127.0.0.1:9090",
             serverNode = server,
@@ -228,7 +232,33 @@ public static class CoreConfigBuilder
         }
 
         await File.WriteAllTextAsync(configPath, actualConfig);
-        LoggingService.Instance.LogApp("Конфигурация ядра скомпилирована через Sentinel AST Core и сохранена в data/running_config.json");
+
+        if (OperatingSystem.IsWindows())
+        {
+            try
+            {
+                var fileInfo = new FileInfo(configPath);
+                var fileSecurity = new System.Security.AccessControl.FileSecurity();
+                var currentUser = System.Security.Principal.WindowsIdentity.GetCurrent().User;
+                if (currentUser != null)
+                {
+                    fileSecurity.SetOwner(currentUser);
+                    fileSecurity.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+                    fileSecurity.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
+                        currentUser,
+                        System.Security.AccessControl.FileSystemRights.FullControl,
+                        System.Security.AccessControl.AccessControlType.Allow));
+                    fileSecurity.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
+                        new System.Security.Principal.SecurityIdentifier(System.Security.Principal.WellKnownSidType.BuiltinAdministratorsSid, null),
+                        System.Security.AccessControl.FileSystemRights.FullControl,
+                        System.Security.AccessControl.AccessControlType.Allow));
+                    fileInfo.SetAccessControl(fileSecurity);
+                }
+            }
+            catch { }
+        }
+
+        LoggingService.Instance.LogApp("Конфигурация ядра скомпилирована через Sentinel AST Core и защищена правами доступа");
         return (true, configPath, null);
     }
 

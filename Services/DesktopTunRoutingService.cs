@@ -11,6 +11,7 @@ public static class DesktopTunRoutingService
 {
     private static string? _lastServerAddress;
     private static string? _lastOriginalGateway;
+    private static string? _lastActualInterfaceName;
 
     public static async Task SetupTunRoutesAsync(string interfaceName, string serverAddress, System.Collections.Generic.List<string>? dnsServers = null)
     {
@@ -23,37 +24,42 @@ public static class DesktopTunRoutingService
 
             LoggingService.Instance.LogApp($"[TUN-Route] Ожидание инициализации адаптера '{interfaceName}'...");
 
-            // Wait up to 5 seconds for Wintun adapter to appear
-            bool found = false;
-            for (int i = 0; i < 25; i++)
+            // Wait up to 25 seconds for Wintun adapter to appear (Xray can take 5-8s to parse geosite/geoip rules on startup)
+            string? actualInterfaceName = null;
+            for (int i = 0; i < 100; i++)
             {
-                if (NetworkInterface.GetAllNetworkInterfaces().Any(n => n.Name.Equals(interfaceName, StringComparison.OrdinalIgnoreCase)))
+                var iface = NetworkInterface.GetAllNetworkInterfaces()
+                    .FirstOrDefault(n => n.Name.Equals(interfaceName, StringComparison.OrdinalIgnoreCase) ||
+                                         (n.Description.Contains("Wintun", StringComparison.OrdinalIgnoreCase) &&
+                                          n.Name.StartsWith(interfaceName, StringComparison.OrdinalIgnoreCase)));
+                if (iface != null)
                 {
-                    found = true;
+                    actualInterfaceName = iface.Name;
                     break;
                 }
-                await Task.Delay(200);
+                await Task.Delay(250);
             }
 
-            if (!found)
+            if (string.IsNullOrEmpty(actualInterfaceName))
             {
                 LoggingService.Instance.LogApp($"[TUN-Route] Внимание: адаптер '{interfaceName}' не обнаружен в системе за отведенное время", "WARN");
                 return;
             }
 
-            await Task.Delay(300); // Give Wintun driver a brief moment to settle
+            _lastActualInterfaceName = actualInterfaceName;
+            await Task.Delay(400); // Give Wintun driver a brief moment to settle
 
-            LoggingService.Instance.LogApp($"[TUN-Route] Конфигурация IP, DNS и маршрутов для адаптера '{interfaceName}'...");
+            LoggingService.Instance.LogApp($"[TUN-Route] Конфигурация IP, DNS и маршрутов для адаптера '{actualInterfaceName}'...");
 
             // 1. Set static IP and default gateway
-            RunProcess("netsh", $"interface ip set address name=\"{interfaceName}\" source=static addr=172.19.0.1 mask=255.255.255.252 gateway=172.19.0.2 gwmetric=1");
+            RunProcess("netsh", $"interface ip set address name=\"{actualInterfaceName}\" source=static addr=172.19.0.1 mask=255.255.255.252 gateway=172.19.0.2 gwmetric=1");
 
             // 2. Set DNS servers
             var primaryDns = dnsServers?.FirstOrDefault(s => !s.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) ?? "8.8.8.8";
             var secondaryDns = dnsServers?.Where(s => !s.StartsWith("https://", StringComparison.OrdinalIgnoreCase)).Skip(1).FirstOrDefault() ?? "1.1.1.1";
 
-            RunProcess("netsh", $"interface ip set dns name=\"{interfaceName}\" source=static addr={primaryDns} validate=no");
-            RunProcess("netsh", $"interface ip add dns name=\"{interfaceName}\" addr={secondaryDns} index=2 validate=no");
+            RunProcess("netsh", $"interface ip set dns name=\"{actualInterfaceName}\" source=static addr={primaryDns} validate=no");
+            RunProcess("netsh", $"interface ip add dns name=\"{actualInterfaceName}\" addr={secondaryDns} index=2 validate=no");
 
             // 3. Add static route to proxy server via original physical gateway to avoid routing loops
             if (!string.IsNullOrWhiteSpace(serverAddress))
@@ -98,7 +104,7 @@ public static class DesktopTunRoutingService
                 }
             }
 
-            LoggingService.Instance.LogApp($"[TUN-Route] Адаптер '{interfaceName}' успешно сконфигурирован (IP: 172.19.0.1, GW: 172.19.0.2, DNS: {primaryDns})");
+            LoggingService.Instance.LogApp($"[TUN-Route] Адаптер '{actualInterfaceName}' успешно сконфигурирован (IP: 172.19.0.1, GW: 172.19.0.2, DNS: {primaryDns})");
         }
         catch (Exception ex)
         {
@@ -117,12 +123,19 @@ public static class DesktopTunRoutingService
                 RunProcess("route", $"delete {_lastServerAddress}");
                 LoggingService.Instance.LogApp($"[TUN-Route] Статический маршрут к узлу {_lastServerAddress} удален");
             }
+
+            if (!string.IsNullOrEmpty(_lastActualInterfaceName))
+            {
+                RunProcess("netsh", $"interface ip set address name=\"{_lastActualInterfaceName}\" source=dhcp");
+                RunProcess("netsh", $"interface ip set dns name=\"{_lastActualInterfaceName}\" source=dhcp");
+            }
         }
         catch { }
         finally
         {
             _lastServerAddress = null;
             _lastOriginalGateway = null;
+            _lastActualInterfaceName = null;
         }
     }
 

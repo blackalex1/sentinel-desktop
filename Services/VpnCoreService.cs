@@ -16,8 +16,10 @@ public class VpnCoreService
     private readonly CoreProcessManager _processManager = new();
     private readonly CoreLogStreamer _logStreamer = new();
     private readonly CoreTrafficMonitor _trafficMonitor = new();
+    private readonly System.Threading.SemaphoreSlim _lifecycleLock = new(1, 1);
 
     public bool IsRunning => _processManager.IsRunning;
+    public bool IsStarting { get; private set; }
     public ServerProfile? ActiveServer { get; private set; }
     public AppSettings? ActiveSettings { get; private set; }
 
@@ -39,7 +41,7 @@ public class VpnCoreService
     public static void EnsureWintunDriver() => CoreEnvironmentService.EnsureWintunDriver();
     public static bool AreGeoDataFilesInstalled() => CoreEnvironmentService.AreGeoDataFilesInstalled();
     public static bool IsCoreBinaryInstalled(string coreType = "sing-box") => CoreEnvironmentService.IsCoreBinaryInstalled(coreType);
-    public static void KillExistingCores() => CoreProcessManager.KillExistingCores();
+    public static void KillExistingCores(int? excludePid = null) => CoreProcessManager.KillExistingCores(excludePid);
     public static int FindAvailablePort(int startingPort) => CoreEnvironmentService.FindAvailablePort(startingPort);
     #endregion
 
@@ -71,20 +73,22 @@ public class VpnCoreService
 
     public async Task<bool> StartAsync(ServerProfile server, AppSettings settings)
     {
-        if (IsRunning)
-        {
-            await StopAsync();
-        }
-
-        // Terminate any orphaned background cores and ensure ports are released
-        CoreProcessManager.KillExistingCores();
-        await Task.Delay(150);
-
-        var socksPort = CoreEnvironmentService.FindAvailablePort(settings.SocksPort);
-        var httpPort = CoreEnvironmentService.FindAvailablePort(settings.HttpPort == socksPort ? socksPort + 1 : settings.HttpPort);
-
+        await _lifecycleLock.WaitAsync();
+        IsStarting = true;
         try
         {
+            if (IsRunning)
+            {
+                await StopInternalAsync();
+            }
+
+            // Terminate any orphaned background cores and ensure ports are released
+            CoreProcessManager.KillExistingCores();
+            await Task.Delay(250);
+
+            var socksPort = CoreEnvironmentService.FindAvailablePort(settings.SocksPort);
+            var httpPort = CoreEnvironmentService.FindAvailablePort(settings.HttpPort == socksPort ? socksPort + 1 : settings.HttpPort);
+
             if (server.Country == "HOTSPOT" || !string.IsNullOrEmpty(server.HotspotToken))
             {
                 LoggingService.Instance.LogApp("📡 Отправка зашифрованного сигнала старта сессии на телефон...");
@@ -136,10 +140,10 @@ public class VpnCoreService
                 return false;
             }
 
-            // If starting Xray without Administrator privileges, restart application elevated for direct execution and stream capture
-            if (isXray && !CoreEnvironmentService.IsAdministrator())
+            // In TUN mode, Administrator privileges are required for Wintun driver and routing tables
+            if (settings.IsTunMode && !CoreEnvironmentService.IsAdministrator())
             {
-                LoggingService.Instance.LogApp("Перезапуск Sentinel Desktop с правами Администратора для прямого запуска Xray-core и перехвата логов...");
+                LoggingService.Instance.LogApp("Перезапуск Sentinel Desktop с правами Администратора для активации TUN-режима и Wintun...");
                 CoreEnvironmentService.IsElevatingHandoff = true;
 
                 var procPath = Environment.ProcessPath;
@@ -236,9 +240,27 @@ public class VpnCoreService
             _logStreamer.StopAll();
             return false;
         }
+        finally
+        {
+            IsStarting = false;
+            _lifecycleLock.Release();
+        }
     }
 
     public async Task StopAsync()
+    {
+        await _lifecycleLock.WaitAsync();
+        try
+        {
+            await StopInternalAsync();
+        }
+        finally
+        {
+            _lifecycleLock.Release();
+        }
+    }
+
+    private async Task StopInternalAsync()
     {
         try
         {
@@ -263,7 +285,10 @@ public class VpnCoreService
             DesktopTunRoutingService.TeardownTunRoutes();
             _trafficMonitor.Stop();
             _logStreamer.StopAll();
+            ActiveServer = null;
+            ActiveSettings = null;
             StateChanged?.Invoke(false);
+            CleanupRunningConfig();
         }
     }
 
@@ -285,6 +310,22 @@ public class VpnCoreService
             _trafficMonitor.Stop();
             _logStreamer.StopAll();
             StateChanged?.Invoke(false);
+            CleanupRunningConfig();
         }
+    }
+
+    public static void CleanupRunningConfig()
+    {
+        try
+        {
+            var dataDir = CoreEnvironmentService.GetDataDirectory();
+            var configPath = Path.Combine(dataDir, "running_config.json");
+            if (File.Exists(configPath))
+            {
+                try { File.WriteAllText(configPath, "{}"); } catch { }
+                File.Delete(configPath);
+            }
+        }
+        catch { }
     }
 }

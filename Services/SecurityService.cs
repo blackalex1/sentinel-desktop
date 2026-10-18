@@ -40,7 +40,7 @@ public class SecurityService
 
     private SecurityService()
     {
-        var dataDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data");
+        var dataDir = CoreEnvironmentService.GetDataDirectory();
         Directory.CreateDirectory(dataDir);
         _securityConfigPath = Path.Combine(dataDir, "security.json");
 
@@ -57,6 +57,7 @@ public class SecurityService
 
     public void RefreshPcapStatusFromCore()
     {
+        if (!SentinelCoreNative.IsAvailable()) return;
         try
         {
             var json = SentinelCoreNative.GetPcapStatus();
@@ -194,7 +195,9 @@ public class SecurityService
         try
         {
             var json = JsonSerializer.Serialize(Settings, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(_securityConfigPath, json);
+            var tempPath = _securityConfigPath + ".tmp";
+            File.WriteAllText(tempPath, json);
+            File.Move(tempPath, _securityConfigPath, overwrite: true);
         }
         catch { }
     }
@@ -242,7 +245,7 @@ public class SecurityService
 
     public void SyncPolicyWithCore()
     {
-        var pcapDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data", "pcaps");
+        var pcapDir = Path.Combine(CoreEnvironmentService.GetDataDirectory(), "pcaps");
         Directory.CreateDirectory(pcapDir);
 
         var policy = new
@@ -266,7 +269,7 @@ public class SecurityService
         SentinelCoreNative.ConfigureSecurityPolicy(json);
 
         // If core is currently running, hot reload routing
-        if (VpnCoreService.Instance.IsRunning && VpnCoreService.Instance.ActiveServer != null && VpnCoreService.Instance.ActiveSettings != null)
+        if (VpnCoreService.Instance.IsRunning && !VpnCoreService.Instance.IsStarting && VpnCoreService.Instance.ActiveServer != null && VpnCoreService.Instance.ActiveSettings != null)
         {
             _ = Task.Run(async () =>
             {

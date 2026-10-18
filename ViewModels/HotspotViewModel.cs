@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Security.Cryptography;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SentinelDesktop.Models;
@@ -12,7 +13,6 @@ namespace SentinelDesktop.ViewModels;
 
 public partial class HotspotViewModel : ViewModelBase
 {
-    private static readonly Random _random = new();
 
     [ObservableProperty]
     private ObservableCollection<string> _candidateGateways = new();
@@ -110,7 +110,7 @@ public partial class HotspotViewModel : ViewModelBase
     [RelayCommand]
     public void GeneratePin()
     {
-        CurrentPin = _random.Next(1000, 9999).ToString();
+        CurrentPin = RandomNumberGenerator.GetInt32(1000, 10000).ToString();
     }
 
     [RelayCommand]

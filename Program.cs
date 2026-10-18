@@ -49,6 +49,7 @@ sealed class Program
 
         AppDomain.CurrentDomain.UnhandledException += (s, e) =>
         {
+            try { Services.WindowsSystemProxyService.DisableSystemProxy(); } catch { }
             LogCrash("AppDomain.UnhandledException", e.ExceptionObject as Exception);
         };
 
@@ -64,12 +65,15 @@ sealed class Program
         }
         catch (Exception ex)
         {
+            try { Services.WindowsSystemProxyService.DisableSystemProxy(); } catch { }
             LogCrash("Main Catch", ex);
             throw;
         }
         finally
         {
             try { _mutex?.ReleaseMutex(); } catch { }
+            try { _mutex?.Dispose(); } catch { }
+            _mutex = null;
         }
     }
 

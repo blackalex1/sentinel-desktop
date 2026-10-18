@@ -18,7 +18,7 @@ public class CoreTrafficMonitor
     public CoreTrafficMonitor()
     {
         _trafficTimer = new System.Timers.Timer(1000);
-        _trafficTimer.Elapsed += (s, e) => PollTraffic();
+        _trafficTimer.Elapsed += (s, e) => _ = PollTrafficAsync();
     }
 
     public void Start(Func<bool> isRunningProvider)
@@ -43,7 +43,7 @@ public class CoreTrafficMonitor
 
     private static readonly System.Net.Http.HttpClient _httpClient = new() { Timeout = TimeSpan.FromMilliseconds(800) };
 
-    public void PollTraffic(string clashAddr = "127.0.0.1:9090")
+    public async System.Threading.Tasks.Task PollTrafficAsync(string clashAddr = "127.0.0.1:9090")
     {
         var isRunning = _isRunningProvider?.Invoke() ?? false;
         if (!isRunning) return;
@@ -51,13 +51,16 @@ public class CoreTrafficMonitor
         try
         {
             // 1. Primary Strategy: Clash API /traffic endpoint
-            var json = _httpClient.GetStringAsync($"http://{clashAddr}/traffic").GetAwaiter().GetResult();
-
-            if (!string.IsNullOrWhiteSpace(json))
+            using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromMilliseconds(800));
+            var resp = await _httpClient.GetAsync($"http://{clashAddr}/traffic", cts.Token).ConfigureAwait(false);
+            if (resp.IsSuccessStatusCode)
             {
-                using var doc = JsonDocument.Parse(json);
-                var root = doc.RootElement;
-                long downSpeed = 0;
+                var json = await resp.Content.ReadAsStringAsync(cts.Token).ConfigureAwait(false);
+                if (!string.IsNullOrWhiteSpace(json))
+                {
+                    using var doc = JsonDocument.Parse(json);
+                    var root = doc.RootElement;
+                    long downSpeed = 0;
                 long upSpeed = 0;
                 long downTotal = 0;
                 long upTotal = 0;
@@ -94,7 +97,8 @@ public class CoreTrafficMonitor
                 TrafficUpdated?.Invoke(stats);
             }
         }
-        catch
+    }
+    catch
         {
             // Fallback: Sentinel FFI Native Engine Traffic Monitor
             try

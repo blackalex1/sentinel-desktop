@@ -21,6 +21,16 @@ public static class HotspotCrypto
     }
 
     /// <summary>
+    /// Derives a 256-bit AES key from a PIN code using PBKDF2WithHmacSHA256 (100,000 iterations).
+    /// </summary>
+    public static byte[] DeriveKeyFromPinPbkdf2(string pin, byte[]? salt = null)
+    {
+        salt ??= Encoding.UTF8.GetBytes(PinSalt);
+        using var pbkdf2 = new Rfc2898DeriveBytes(pin.Trim(), salt, 100_000, HashAlgorithmName.SHA256);
+        return pbkdf2.GetBytes(32);
+    }
+
+    /// <summary>
     /// Generates a random nonce string for request freshness and replay prevention.
     /// </summary>
     public static string GenerateNonce()

@@ -194,7 +194,7 @@ public partial class CoreCardViewModel : ObservableObject
         {
             await Task.Run(async () =>
             {
-                await CoreUpdateService.Instance.DownloadAndInstallAssetAsync(asset, CoreKey, progress);
+                await CoreUpdateService.Instance.DownloadAndInstallAssetAsync(asset, CoreKey, progress, SelectedRelease?.Assets);
             });
 
             DownloadStatus = "Успешно установлено!";
