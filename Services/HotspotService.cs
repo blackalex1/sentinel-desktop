@@ -224,6 +224,7 @@ public class HotspotService
             {
                 pin = pin,
                 pinCode = pin,
+                kdf = "pbkdf2",
                 clientName = "Sentinel Desktop Windows",
                 timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
             };
@@ -259,8 +260,17 @@ public class HotspotService
                             var encPayload = encProp.GetString();
                             if (!string.IsNullOrEmpty(encPayload))
                             {
-                                var pinKey = HotspotCrypto.DeriveKeyFromPin(pin);
-                                var decrypted = HotspotCrypto.Decrypt(encPayload, pinKey);
+                                string decrypted;
+                                try
+                                {
+                                    var pinKeyPbkdf2 = HotspotCrypto.DeriveKeyFromPinPbkdf2(pin);
+                                    decrypted = HotspotCrypto.Decrypt(encPayload, pinKeyPbkdf2);
+                                }
+                                catch
+                                {
+                                    var pinKey = HotspotCrypto.DeriveKeyFromPin(pin);
+                                    decrypted = HotspotCrypto.Decrypt(encPayload, pinKey);
+                                }
                                 using var decDoc = JsonDocument.Parse(decrypted);
                                 var decRoot = decDoc.RootElement;
 

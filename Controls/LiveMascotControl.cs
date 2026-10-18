@@ -216,6 +216,7 @@ public class LiveMascotControl : Control
 
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        if (IsConnecting) return;
         _isShocking    = true;
         _shockProgress = 0;
         MascotClicked?.Invoke();

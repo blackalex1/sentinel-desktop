@@ -390,7 +390,7 @@ public partial class SecurityViewModel : ViewModelBase
         {
             var dir = !string.IsNullOrEmpty(PcapFilePath) && Directory.Exists(Path.GetDirectoryName(PcapFilePath))
                 ? Path.GetDirectoryName(PcapFilePath)!
-                : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data", "pcaps");
+                : Path.Combine(CoreEnvironmentService.GetDataDirectory(), "pcaps");
 
             Directory.CreateDirectory(dir);
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo

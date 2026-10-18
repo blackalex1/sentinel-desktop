@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -288,7 +290,8 @@ public class CoreUpdateService
     public async Task<string> DownloadAndInstallAssetAsync(
         GithubAsset asset,
         string coreKey,
-        IProgress<(double Progress, string Status)> progress)
+        IProgress<(double Progress, string Status)> progress,
+        List<GithubAsset>? allReleaseAssets = null)
     {
         progress.Report((0.05, "Подключение к серверу GitHub..."));
 
@@ -326,6 +329,37 @@ public class CoreUpdateService
             }
         }
 
+        progress.Report((0.86, "Верификация контрольной суммы SHA-256..."));
+
+        string? expectedHash = null;
+        if (allReleaseAssets != null && allReleaseAssets.Count > 0)
+        {
+            expectedHash = await TryFetchExpectedChecksumAsync(asset, allReleaseAssets);
+        }
+
+        using (var sha256 = SHA256.Create())
+        using (var fileStreamForHash = File.OpenRead(tempZip))
+        {
+            var hashBytes = await sha256.ComputeHashAsync(fileStreamForHash);
+            var actualHash = Convert.ToHexString(hashBytes).ToLowerInvariant();
+
+            if (!string.IsNullOrEmpty(expectedHash))
+            {
+                if (!string.Equals(actualHash, expectedHash.ToLowerInvariant(), StringComparison.OrdinalIgnoreCase))
+                {
+                    var errMsg = $"Ошибка безопасности: не совпадает хеш SHA-256 для {asset.Name}! Ожидался: {expectedHash}, получен: {actualHash}. Установка отменена.";
+                    LoggingService.Instance.LogApp(errMsg, "CRITICAL");
+                    try { File.Delete(tempZip); } catch { }
+                    throw new CryptographicException(errMsg);
+                }
+                LoggingService.Instance.LogApp($"[Security] Целостность подтверждена: SHA-256 ({actualHash}) совпадает с релизом GitHub.");
+            }
+            else
+            {
+                LoggingService.Instance.LogApp($"[Security] SHA-256 загруженного файла {asset.Name}: {actualHash}");
+            }
+        }
+
         progress.Report((0.88, "Распаковка и установка компонентов..."));
         var binDir = GetBinariesDirectory();
         var baseDir = AppDomain.CurrentDomain.BaseDirectory;
@@ -352,10 +386,20 @@ public class CoreUpdateService
                         fName.EndsWith(".dat", StringComparison.OrdinalIgnoreCase))
                     {
                         var dest = Path.Combine(binDir, fName);
-                        File.Copy(file, dest, true);
-                        if (fName.EndsWith(".dat", StringComparison.OrdinalIgnoreCase) || fName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+                        try
                         {
-                            File.Copy(file, Path.Combine(baseDir, fName), true);
+                            File.Copy(file, dest, true);
+                            if (fName.EndsWith(".dat", StringComparison.OrdinalIgnoreCase) || fName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+                            {
+                                try { File.Copy(file, Path.Combine(baseDir, fName), true); } catch { }
+                            }
+                        }
+                        catch (IOException)
+                        {
+                            // In case DLL or executable is currently locked in memory
+                            var pending = dest + ".pending_update";
+                            try { File.Copy(file, pending, true); } catch { }
+                            LoggingService.Instance.LogApp($"Файл {fName} занят запущенным процессом. Запланировано применение обновления: {pending}", "WARN");
                         }
                     }
                 }
@@ -369,10 +413,20 @@ public class CoreUpdateService
         {
             var expectedName = Repositories.TryGetValue(coreKey, out var repo) ? repo.ExeName : asset.Name;
             var destPath = Path.Combine(binDir, expectedName);
-            File.Copy(tempZip, destPath, true);
-            if (expectedName.EndsWith(".dat", StringComparison.OrdinalIgnoreCase))
+            try
             {
-                File.Copy(tempZip, Path.Combine(baseDir, expectedName), true);
+                File.Copy(tempZip, destPath, true);
+                if (expectedName.EndsWith(".dat", StringComparison.OrdinalIgnoreCase))
+                {
+                    try { File.Copy(tempZip, Path.Combine(baseDir, expectedName), true); } catch { }
+                }
+            }
+            catch (IOException)
+            {
+                var pending = destPath + ".pending_update";
+                try { File.Copy(tempZip, pending, true); } catch { }
+                LoggingService.Instance.LogApp($"Файл {expectedName} занят запущенным процессом. Запланировано применение: {pending}", "WARN");
+            }
 
                 // Auto-fetch the sibling .dat file if missing
                 var siblingName = expectedName.Equals("geosite.dat", StringComparison.OrdinalIgnoreCase) ? "geoip.dat" : "geosite.dat";
@@ -389,7 +443,6 @@ public class CoreUpdateService
                     catch { }
                 }
             }
-        }
 
         try { File.Delete(tempZip); } catch { }
 
@@ -397,5 +450,99 @@ public class CoreUpdateService
         LoggingService.Instance.LogApp($"Компонент {coreKey} успешно обновлен из GitHub релиза: {asset.Name}");
         CoreInstalled?.Invoke(coreKey);
         return Path.Combine(binDir, Repositories[coreKey].ExeName);
+    }
+
+    private async Task<string?> TryFetchExpectedChecksumAsync(GithubAsset targetAsset, List<GithubAsset> allAssets)
+    {
+        try
+        {
+            // 1. Direct match: targetAsset.Name + ".sha256" or ".sha256sum" or ".dgst"
+            var direct = allAssets.FirstOrDefault(a =>
+                a.Name.Equals(targetAsset.Name + ".sha256", StringComparison.OrdinalIgnoreCase) ||
+                a.Name.Equals(targetAsset.Name + ".sha256sum", StringComparison.OrdinalIgnoreCase) ||
+                a.Name.Equals(targetAsset.Name + ".dgst", StringComparison.OrdinalIgnoreCase));
+
+            if (direct != null)
+            {
+                var content = await _httpClient.GetStringAsync(direct.DownloadUrl);
+                var found = ParseChecksum(content, targetAsset.Name);
+                if (!string.IsNullOrEmpty(found)) return found;
+            }
+
+            // 2. Combined checksums file: checksums.txt, sha256sums.txt, Release.txt, etc.
+            var combined = allAssets.FirstOrDefault(a =>
+                a.Name.Equals("checksums.txt", StringComparison.OrdinalIgnoreCase) ||
+                a.Name.Equals("sha256sums.txt", StringComparison.OrdinalIgnoreCase) ||
+                a.Name.Equals("sha256sum.txt", StringComparison.OrdinalIgnoreCase) ||
+                a.Name.EndsWith(".sha256sum", StringComparison.OrdinalIgnoreCase));
+
+            if (combined != null)
+            {
+                var content = await _httpClient.GetStringAsync(combined.DownloadUrl);
+                var found = ParseChecksum(content, targetAsset.Name);
+                if (!string.IsNullOrEmpty(found)) return found;
+            }
+        }
+        catch (Exception ex)
+        {
+            LoggingService.Instance.LogApp($"[Security] Не удалось загрузить контрольные суммы релиза: {ex.Message}", "WARN");
+        }
+
+        return null;
+    }
+
+    private static string? ParseChecksum(string text, string targetFileName)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+
+        var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        foreach (var rawLine in lines)
+        {
+            var line = rawLine.Trim();
+            if (line.Contains(targetFileName, StringComparison.OrdinalIgnoreCase))
+            {
+                var parts = line.Split(new[] { ' ', '\t', ':' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var part in parts)
+                {
+                    var clean = part.Trim('*', ' ', '\t').ToLowerInvariant();
+                    if (clean.Length == 64 && IsHexString(clean))
+                    {
+                        return clean;
+                    }
+                }
+            }
+            else if (line.StartsWith("SHA256=", StringComparison.OrdinalIgnoreCase) || line.StartsWith("SHA-256=", StringComparison.OrdinalIgnoreCase))
+            {
+                var hashCandidate = line.Substring(line.IndexOf('=') + 1).Trim().ToLowerInvariant();
+                if (hashCandidate.Length >= 64 && IsHexString(hashCandidate.Substring(0, 64)))
+                {
+                    return hashCandidate.Substring(0, 64);
+                }
+            }
+        }
+
+        var trimmed = text.Trim();
+        if (trimmed.Length == 64 && IsHexString(trimmed))
+        {
+            return trimmed.ToLowerInvariant();
+        }
+
+        var firstWord = trimmed.Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        if (firstWord != null && firstWord.Length == 64 && IsHexString(firstWord))
+        {
+            return firstWord.ToLowerInvariant();
+        }
+
+        return null;
+    }
+
+    private static bool IsHexString(string str)
+    {
+        foreach (var c in str)
+        {
+            if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')))
+                return false;
+        }
+        return true;
     }
 }

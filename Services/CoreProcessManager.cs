@@ -11,6 +11,7 @@ public class CoreProcessManager
 {
     private static readonly Regex AnsiRegex = new(@"\x1B\[[0-9;]*[a-zA-Z]", RegexOptions.Compiled);
     private Process? _coreProcess;
+    private volatile bool _isStopping = false;
 
     public bool IsRunning
     {
@@ -31,7 +32,37 @@ public class CoreProcessManager
 
     public event Action<int?>? ProcessExited;
 
-    public static void KillExistingCores()
+    private static void ForceKillProcess(Process proc)
+    {
+        try
+        {
+            if (!proc.HasExited)
+            {
+                proc.Kill(true);
+            }
+        }
+        catch
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                try
+                {
+                    var psi = new ProcessStartInfo
+                    {
+                        FileName = "taskkill",
+                        Arguments = $"/F /T /PID {proc.Id}",
+                        CreateNoWindow = true,
+                        UseShellExecute = false
+                    };
+                    using var killProc = Process.Start(psi);
+                    killProc?.WaitForExit(1000);
+                }
+                catch { }
+            }
+        }
+    }
+
+    public static void KillExistingCores(int? excludePid = null)
     {
         if (CoreEnvironmentService.IsElevatingHandoff) return;
 
@@ -43,8 +74,10 @@ public class CoreProcessManager
                 {
                     try
                     {
-                        p.Kill(true);
-                        p.WaitForExit(300);
+                        if (excludePid.HasValue && p.Id == excludePid.Value) continue;
+
+                        ForceKillProcess(p);
+                        p.WaitForExit(1000);
                         p.Dispose();
                     }
                     catch { }
@@ -124,14 +157,24 @@ public class CoreProcessManager
         proc.EnableRaisingEvents = true;
         proc.Exited += (s, e) =>
         {
+            var exitedProc = s as Process ?? proc;
             int? exitCode = null;
-            try { exitCode = _coreProcess?.ExitCode; } catch { }
-            LoggingService.Instance.LogApp($"Процесс ядра завершил работу (Код: {exitCode})");
+            try { exitCode = exitedProc.ExitCode; } catch { }
+
+            // If this is an intentional stop (e.g. from Kill(true) on StopAsync/Restart) or an old replaced process, do not treat as an unexpected crash
+            if (_isStopping || (_coreProcess != null && _coreProcess != exitedProc))
+            {
+                LoggingService.Instance.LogApp("Процесс ядра завершил работу (штатная остановка)");
+                return;
+            }
+
+            LoggingService.Instance.LogApp($"Процесс ядра завершил работу (Код: {exitCode})", exitCode != 0 ? "WARN" : "INFO");
             ProcessExited?.Invoke(exitCode);
         };
 
         try
         {
+            _isStopping = false;
             proc.Start();
             _coreProcess = proc;
             ChildProcessTracker.Track(proc);
@@ -160,6 +203,7 @@ public class CoreProcessManager
 
     public async Task StopAsync()
     {
+        _isStopping = true;
         if (_coreProcess != null)
         {
             try
@@ -167,10 +211,10 @@ public class CoreProcessManager
                 if (!_coreProcess.HasExited)
                 {
                     LoggingService.Instance.LogApp("Остановка процесса ядра...");
-                    _coreProcess.Kill(true);
+                    ForceKillProcess(_coreProcess);
                     await Task.Run(() =>
                     {
-                        try { _coreProcess?.WaitForExit(800); } catch { }
+                        try { _coreProcess?.WaitForExit(1000); } catch { }
                     }).ConfigureAwait(false);
                 }
             }
@@ -189,14 +233,15 @@ public class CoreProcessManager
     {
         if (CoreEnvironmentService.IsElevatingHandoff) return;
 
+        _isStopping = true;
         if (_coreProcess != null)
         {
             try
             {
                 if (!_coreProcess.HasExited)
                 {
-                    _coreProcess.Kill(true);
-                    _coreProcess.WaitForExit(600);
+                    ForceKillProcess(_coreProcess);
+                    _coreProcess.WaitForExit(1000);
                 }
             }
             catch { }

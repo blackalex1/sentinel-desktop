@@ -28,7 +28,7 @@ public class RoutingService
 
     private RoutingService()
     {
-        var dataDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data");
+        var dataDir = CoreEnvironmentService.GetDataDirectory();
         Directory.CreateDirectory(dataDir);
         _configPath = Path.Combine(dataDir, "routing.json");
 
@@ -98,7 +98,9 @@ public class RoutingService
         try
         {
             var json = JsonSerializer.Serialize(Config, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(_configPath, json);
+            var tempPath = _configPath + ".tmp";
+            File.WriteAllText(tempPath, json);
+            File.Move(tempPath, _configPath, overwrite: true);
             LoggingService.Instance.LogApp("Конфигурация маршрутизации сохранена в data/routing.json");
         }
         catch (Exception ex)
@@ -160,7 +162,7 @@ public class RoutingService
             _knownQuarantined.Clear();
             foreach (var b in currentBlocked) _knownQuarantined.Add(b);
 
-            if (VpnCoreService.Instance.IsRunning && VpnCoreService.Instance.ActiveServer != null && VpnCoreService.Instance.ActiveSettings != null)
+            if (VpnCoreService.Instance.IsRunning && !VpnCoreService.Instance.IsStarting && VpnCoreService.Instance.ActiveServer != null && VpnCoreService.Instance.ActiveSettings != null)
             {
                 _ = Task.Run(async () =>
                 {
@@ -191,16 +193,20 @@ public class RoutingService
         if (includeSecurityRules)
         {
             // 0. Quarantined Banned Processes (Highest Zero Trust Priority)
-            lock (_quarantinedApps)
+            var blockedApps = GetBlockedApps();
+            var blockedProcessNames = blockedApps
+                .Select(b => b.ProcessName)
+                .Where(n => !string.IsNullOrWhiteSpace(n) && !n.Equals("DefaultEntity", StringComparison.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (blockedProcessNames.Count > 0)
             {
-                if (_quarantinedApps.Count > 0)
+                rules.Add(new
                 {
-                    rules.Add(new
-                    {
-                        action = "block",
-                        processNames = _quarantinedApps.Keys.ToList()
-                    });
-                }
+                    action = "block",
+                    processNames = blockedProcessNames
+                });
             }
 
             // 1. PortShield Active Blocked Sensitive Ports (Strict Zero-Trust mode only)

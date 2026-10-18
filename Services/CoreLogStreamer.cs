@@ -33,8 +33,16 @@ public class CoreLogStreamer
                 try
                 {
                     pipeSecurity = new PipeSecurity();
+                    using var identity = WindowsIdentity.GetCurrent();
+                    if (identity.User != null)
+                    {
+                        pipeSecurity.AddAccessRule(new PipeAccessRule(
+                            identity.User,
+                            PipeAccessRights.ReadWrite,
+                            AccessControlType.Allow));
+                    }
                     pipeSecurity.AddAccessRule(new PipeAccessRule(
-                        new SecurityIdentifier(WellKnownSidType.WorldSid, null),
+                        new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null),
                         PipeAccessRights.ReadWrite,
                         AccessControlType.Allow));
                 }

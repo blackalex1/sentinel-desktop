@@ -51,3 +51,6 @@ dist/
 data/
 logs/
 scratch/
+*.tmp
+*.bak
+*.pending_update

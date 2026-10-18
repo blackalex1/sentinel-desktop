@@ -54,6 +54,7 @@
                     <Button Classes="hero-connect"
                             Classes.connected="{Binding IsConnected}"
                             Command="{Binding ToggleConnectionCommand}"
+                            IsEnabled="{Binding !IsConnecting}"
                             HorizontalAlignment="Center">
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <Ellipse Width="8" Height="8" Fill="#38BDF8" VerticalAlignment="Center" />

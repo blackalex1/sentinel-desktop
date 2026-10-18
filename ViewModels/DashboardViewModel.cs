@@ -276,6 +276,8 @@ public partial class DashboardViewModel : ViewModelBase
     [RelayCommand]
     private async Task ToggleConnectionAsync()
     {
+        if (IsConnecting) return;
+
         if (IsConnected)
         {
             await VpnCoreService.Instance.StopAsync();
@@ -318,6 +320,7 @@ public partial class DashboardViewModel : ViewModelBase
 
     public async Task StartConnectionAsync()
     {
+        if (IsConnecting || IsConnected) return;
         if (SelectedServer == null) return;
 
         CheckCoreBinaryStatus();
@@ -412,9 +415,12 @@ public partial class DashboardViewModel : ViewModelBase
 
     private void OnTrafficUpdated(TrafficStats stats)
     {
-        DownloadSpeed = stats.DownSpeedFormatted;
-        UploadSpeed = stats.UpSpeedFormatted;
-        TotalDownload = stats.TotalDownFormatted;
-        TotalUpload = stats.TotalUpFormatted;
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            DownloadSpeed = stats.DownSpeedFormatted;
+            UploadSpeed = stats.UpSpeedFormatted;
+            TotalDownload = stats.TotalDownFormatted;
+            TotalUpload = stats.TotalUpFormatted;
+        });
     }
 }

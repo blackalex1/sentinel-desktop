@@ -128,10 +128,6 @@ public partial class ServersViewModel : ViewModelBase
         }
         SelectedServer = server;
 
-        var copy = Servers.ToList();
-        Servers.Clear();
-        foreach (var c in copy) Servers.Add(c);
-
         SaveVault();
         ShowStatus($"Выбран активный узел: {server.Name}");
     }
@@ -148,7 +144,8 @@ public partial class ServersViewModel : ViewModelBase
         {
             Parallel.ForEach(list, s =>
             {
-                s.Ping = SentinelCoreNative.TestPing(s.Address, s.Port, 2000);
+                var p = SentinelCoreNative.TestPing(s.Address, s.Port, 2000);
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => s.Ping = p);
             });
         });
 
@@ -163,7 +160,8 @@ public partial class ServersViewModel : ViewModelBase
         ShowStatus($"Пинг узла {server.Address}:{server.Port}...");
         await Task.Run(() =>
         {
-            server.Ping = SentinelCoreNative.TestPing(server.Address, server.Port, 2000);
+            var p = SentinelCoreNative.TestPing(server.Address, server.Port, 2000);
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => server.Ping = p);
         });
 
         SaveVault();
@@ -402,11 +400,14 @@ public partial class ServersViewModel : ViewModelBase
         HasStatusMessage = true;
         Task.Delay(4000).ContinueWith(_ =>
         {
-            if (StatusMessage == msg)
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
-                HasStatusMessage = false;
-                StatusMessage = string.Empty;
-            }
+                if (StatusMessage == msg)
+                {
+                    HasStatusMessage = false;
+                    StatusMessage = string.Empty;
+                }
+            });
         });
     }
 }

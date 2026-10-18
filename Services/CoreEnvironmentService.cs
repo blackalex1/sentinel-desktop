@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -10,6 +11,38 @@ namespace SentinelDesktop.Services;
 public static class CoreEnvironmentService
 {
     public static bool IsElevatingHandoff { get; set; } = false;
+
+    public static string GetDataDirectory()
+    {
+        var localData = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data");
+        var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SentinelDesktop", "data");
+
+        try
+        {
+            Directory.CreateDirectory(localData);
+            var testFile = Path.Combine(localData, ".writetest");
+            File.WriteAllText(testFile, "ok");
+            File.Delete(testFile);
+            return localData;
+        }
+        catch
+        {
+            // Fallback for Program Files / non-writable installations
+            try
+            {
+                Directory.CreateDirectory(appData);
+                // Migrate existing vault if present in localData but not in appData
+                var localVault = Path.Combine(localData, "vault.json");
+                var appVault = Path.Combine(appData, "vault.json");
+                if (File.Exists(localVault) && !File.Exists(appVault))
+                {
+                    File.Copy(localVault, appVault, true);
+                }
+            }
+            catch { }
+            return appData;
+        }
+    }
 
     public static bool IsAdministrator()
     {
@@ -140,5 +173,36 @@ public static class CoreEnvironmentService
             catch { }
         }
         return startingPort;
+    }
+
+    public static string GetCoreVersion(string? coreExe, bool isXray)
+    {
+        if (string.IsNullOrEmpty(coreExe) || !File.Exists(coreExe))
+        {
+            return isXray ? "1.8.0" : "1.13.18";
+        }
+
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = coreExe,
+                Arguments = "version",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            using var p = Process.Start(psi);
+            if (p != null)
+            {
+                var output = p.StandardOutput.ReadToEnd();
+                p.WaitForExit(800);
+                var match = System.Text.RegularExpressions.Regex.Match(output, @"version\s+([0-9.]+)");
+                if (match.Success) return match.Groups[1].Value;
+            }
+        }
+        catch { }
+
+        return isXray ? "1.8.0" : "1.13.18";
     }
 }

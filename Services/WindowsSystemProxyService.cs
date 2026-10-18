@@ -48,4 +48,35 @@ public static class WindowsSystemProxyService
     {
         SetSystemProxy(enabled: false);
     }
+
+    public static bool IsSystemProxyEnabled()
+    {
+        if (!OperatingSystem.IsWindows()) return false;
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Internet Settings", false);
+            var val = key?.GetValue("ProxyEnable");
+            return val is int i && i == 1;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public static void CleanStaleProxyIfPresent()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Internet Settings", false);
+            var server = key?.GetValue("ProxyServer") as string;
+            if (IsSystemProxyEnabled() && server != null && (server.Contains("127.0.0.1:10809") || server.Contains("127.0.0.1:10808") || server.Contains("127.0.0.1:20809")))
+            {
+                LoggingService.Instance.LogApp("Обнаружен зависший системный прокси от предыдущего сеанса. Сброс...", "WARN");
+                DisableSystemProxy();
+            }
+        }
+        catch { }
+    }
 }

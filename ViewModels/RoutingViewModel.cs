@@ -531,7 +531,10 @@ public partial class RoutingViewModel : ViewModelBase
             await VpnCoreService.Instance.RestartWithNewSettingsAsync();
         }
 
-        _ = Task.Delay(2500).ContinueWith(_ => IsDnsSavedFeedback = false);
+        _ = Task.Delay(2500).ContinueWith(_ =>
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => IsDnsSavedFeedback = false);
+        });
     }
 
     private void UpdateActiveResolvers()
@@ -578,11 +581,14 @@ public partial class RoutingViewModel : ViewModelBase
         HasStatusMessage = true;
         Task.Delay(3500).ContinueWith(_ =>
         {
-            if (StatusMessage == msg)
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
-                HasStatusMessage = false;
-                StatusMessage = string.Empty;
-            }
+                if (StatusMessage == msg)
+                {
+                    HasStatusMessage = false;
+                    StatusMessage = string.Empty;
+                }
+            });
         });
     }
 }

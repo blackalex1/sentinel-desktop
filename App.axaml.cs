@@ -21,20 +21,26 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            // Reset any stale proxy or unencrypted running configs left by crashed sessions
+            WindowsSystemProxyService.CleanStaleProxyIfPresent();
+            VpnCoreService.CleanupRunningConfig();
+
             var mainVm = new MainWindowViewModel();
             desktop.MainWindow = new MainWindow
             {
                 DataContext = mainVm,
             };
 
-            // Hook application exit to safely terminate core subprocesses
+            // Hook application exit to safely terminate core subprocesses and cleanup credentials
             desktop.Exit += (s, e) =>
             {
+                WindowsSystemProxyService.DisableSystemProxy();
                 VpnCoreService.Instance.StopSync();
             };
 
             AppDomain.CurrentDomain.ProcessExit += (s, e) =>
             {
+                WindowsSystemProxyService.DisableSystemProxy();
                 VpnCoreService.Instance.StopSync();
             };
 
