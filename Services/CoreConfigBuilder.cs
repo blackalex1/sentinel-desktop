@@ -129,6 +129,20 @@ public static class CoreConfigBuilder
                     nodeObj["log"]!["disabled"] = false;
                     nodeObj["log"]!["level"] = coreLogLevel;
                     nodeObj["log"]!["timestamp"] = true;
+
+                    // Guarantee all initial_path files referenced by route.rule_set exist on disk
+                    if (nodeObj["route"]?["rule_set"] is JsonArray ruleSetsArr)
+                    {
+                        foreach (var rs in ruleSetsArr)
+                        {
+                            if (rs is JsonObject rsObj && rsObj["initial_path"] != null)
+                            {
+                                var initialPath = rsObj["initial_path"]!.ToString();
+                                var fileName = Path.GetFileName(initialPath);
+                                CoreEnvironmentService.EnsureRuleStub(fileName);
+                            }
+                        }
+                    }
                 }
                 else
                 {

@@ -89,10 +89,17 @@ public class VpnCoreService
             var socksPort = CoreEnvironmentService.FindAvailablePort(settings.SocksPort);
             var httpPort = CoreEnvironmentService.FindAvailablePort(settings.HttpPort == socksPort ? socksPort + 1 : settings.HttpPort);
 
+            // Ensure rule sets and stubs are initialized for zero-crash startup
+            await CoreEnvironmentService.EnsureRuleSetsAsync();
+
             if (server.Country == "HOTSPOT" || !string.IsNullOrEmpty(server.HotspotToken))
             {
                 LoggingService.Instance.LogApp("📡 Отправка зашифрованного сигнала старта сессии на телефон...");
-                await HotspotService.Instance.NotifySessionStartAsync(server);
+                var hotspotAck = await HotspotService.Instance.NotifySessionStartAsync(server);
+                if (!hotspotAck)
+                {
+                    LoggingService.Instance.LogApp("⚠️ Мобильная точка Sentinel не ответила на сигнал старта сессии (порты 18080-19081 недоступны). Убедитесь, что приложение на телефоне запущено и устройства подключены к одной Wi-Fi сети.", "WARN");
+                }
             }
 
             var resolvedCore = CoreEnginesCatalog.GetEngine(settings.CoreType);
