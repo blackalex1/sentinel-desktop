@@ -35,6 +35,9 @@ public partial class MainWindowViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(LogsIconColor))]
     private string _activePage = "dashboard";
 
+    [ObservableProperty]
+    private bool _hasAppUpdate;
+
     public bool IsDashboardActive => ActivePage == "dashboard";
     public bool IsServersActive => ActivePage == "servers";
     public bool IsRoutingActive => ActivePage == "routing";
@@ -134,6 +137,15 @@ public partial class MainWindowViewModel : ViewModelBase
         };
 
         CoreUpdateService.Instance.CoreInstalled += _ => Avalonia.Threading.Dispatcher.UIThread.Post(CheckCoreReadiness);
+
+        AppUpdateService.Instance.UpdateStatusChanged += () =>
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                HasAppUpdate = AppUpdateService.Instance.HasUpdate;
+            });
+        };
+        _ = AppUpdateService.Instance.CheckForUpdateAsync();
     }
 
     public void CheckCoreReadiness()

@@ -43,6 +43,9 @@ public class GithubReleaseInfo
     [JsonPropertyName("published_at")]
     public DateTime? PublishedAt { get; set; }
 
+    [JsonPropertyName("html_url")]
+    public string HtmlUrl { get; set; } = string.Empty;
+
     [JsonPropertyName("assets")]
     public List<GithubAsset> Assets { get; set; } = new();
 

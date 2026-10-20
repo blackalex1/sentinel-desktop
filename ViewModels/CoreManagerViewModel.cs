@@ -263,6 +263,10 @@ public partial class CoreManagerViewModel : ViewModelBase
 
     public CoreManagerViewModel()
     {
+        AppUpdateService.Instance.UpdateStatusChanged += () =>
+        {
+            Dispatcher.UIThread.Post(NotifyAppUpdateState);
+        };
         var vault = StorageService.Load();
         _selectedLogLevel = LogLevelsCatalog.GetLevel(vault.Settings.LogLevel);
 
@@ -399,6 +403,61 @@ public partial class CoreManagerViewModel : ViewModelBase
         {
             ShowStatus($"Ошибка открытия папки: {ex.Message}");
         }
+    }
+
+    public bool HasAppUpdate => AppUpdateService.Instance.HasUpdate;
+    public string AppCurrentVersion => AppUpdateService.CurrentVersion;
+    public string AppLatestVersion => AppUpdateService.Instance.LatestVersion;
+    public string AppReleaseNotes => AppUpdateService.Instance.ReleaseNotes;
+    public bool IsCheckingAppUpdate => AppUpdateService.Instance.IsChecking;
+    public bool IsDownloadingAppUpdate => AppUpdateService.Instance.IsDownloading;
+    public string AppStatusBadge => HasAppUpdate ? $"Доступно v{AppLatestVersion}" : "Актуально";
+    public string AppStatusColor => HasAppUpdate ? "#EF4444" : "#10B981";
+    public string AppStatusBg => HasAppUpdate ? "#450A0A" : "#064E3B";
+
+    [RelayCommand]
+    public async Task CheckAppUpdateAsync()
+    {
+        ShowStatus("Проверка обновлений Sentinel Desktop...");
+        await AppUpdateService.Instance.CheckForUpdateAsync(force: true);
+        NotifyAppUpdateState();
+    }
+
+    [RelayCommand]
+    public async Task ApplyAppUpdateAsync()
+    {
+        ShowStatus("Загрузка и установка обновления...");
+        await AppUpdateService.Instance.DownloadAndInstallUpdateAsync((p, msg) =>
+        {
+            Dispatcher.UIThread.Post(() => ShowStatus(msg));
+        });
+    }
+
+    [RelayCommand]
+    public void OpenDesktopReleases()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = AppUpdateService.Instance.ReleaseUrl,
+                UseShellExecute = true
+            });
+        }
+        catch { }
+    }
+
+    public void NotifyAppUpdateState()
+    {
+        OnPropertyChanged(nameof(HasAppUpdate));
+        OnPropertyChanged(nameof(AppCurrentVersion));
+        OnPropertyChanged(nameof(AppLatestVersion));
+        OnPropertyChanged(nameof(AppReleaseNotes));
+        OnPropertyChanged(nameof(IsCheckingAppUpdate));
+        OnPropertyChanged(nameof(IsDownloadingAppUpdate));
+        OnPropertyChanged(nameof(AppStatusBadge));
+        OnPropertyChanged(nameof(AppStatusColor));
+        OnPropertyChanged(nameof(AppStatusBg));
     }
 
     private void ShowStatus(string msg)
