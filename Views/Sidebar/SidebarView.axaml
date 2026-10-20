@@ -132,7 +132,16 @@
                         Classes.active="{Binding IsCoreManagerActive}"
                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                     <DockPanel HorizontalAlignment="Stretch" LastChildFill="True">
-                        <Ellipse Width="6" Height="6" Fill="#34D399" VerticalAlignment="Center" DockPanel.Dock="Right" IsVisible="{Binding IsCoreManagerActive}" Margin="4,0,4,0" />
+                        <StackPanel Orientation="Horizontal" Spacing="6" DockPanel.Dock="Right" VerticalAlignment="Center">
+                            <!-- Update Exclamation Badge -->
+                            <Border Background="#EF4444" CornerRadius="8" Width="16" Height="16"
+                                    IsVisible="{Binding HasAppUpdate}"
+                                    ToolTip.Tip="Доступно обновление Sentinel Desktop!">
+                                <TextBlock Text="!" Foreground="White" FontSize="10" FontWeight="ExtraBold"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <Ellipse Width="6" Height="6" Fill="#34D399" VerticalAlignment="Center" IsVisible="{Binding IsCoreManagerActive}" Margin="4,0,4,0" />
+                        </StackPanel>
                         <StackPanel Orientation="Horizontal" Spacing="12">
                             <PathIcon Data="M6 2v2h2V2h2v2h4V2h2v2h2c1.1 0 2 .9 2 2v2h2v2h-2v4h2v2h-2v2c0 1.1-.9 2-2 2h-2v2h-2v-2h-4v2H8v-2H6c-1.1 0-2-.9-2-2v-2H2v-2h2v-4H2V8h2V6c0-1.1.9-2 2-2h2V2zm12 16V6H6v12h12zm-2-2H8V8h8v8z" Width="16" Height="16"
                                       Foreground="{Binding CoreManagerIconColor}" />

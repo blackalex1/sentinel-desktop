@@ -52,6 +52,80 @@
                 </StackPanel>
             </Grid>
 
+            <!-- 1.2 APP UPDATE CARD -->
+            <Border Classes="glass-card" Padding="20,18" Background="#0C1024" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="14">
+                <StackPanel Spacing="14">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <PathIcon Data="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"
+                                          Width="15" Height="15" Foreground="#A855F7" VerticalAlignment="Center" />
+                                <TextBlock Text="Обновление Sentinel Desktop" FontSize="15" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" />
+                                
+                                <!-- Alert Badge -->
+                                <Border Background="{Binding AppStatusBg}" BorderBrush="{Binding AppStatusColor}" BorderThickness="1" CornerRadius="6" Padding="8,2" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                                        <TextBlock Text="!" Foreground="{Binding AppStatusColor}" FontSize="11" FontWeight="ExtraBold" IsVisible="{Binding HasAppUpdate}" />
+                                        <TextBlock Text="{Binding AppStatusBadge}" FontSize="10" FontWeight="Bold" Foreground="{Binding AppStatusColor}" FontFamily="Consolas, monospace" />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                            <TextBlock Text="Проверка свежих релизов десктоп-клиента на GitHub и установка в 1 клик" FontSize="11" Foreground="#94A3B8" />
+                        </StackPanel>
+
+                        <!-- Actions -->
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                            <Button Command="{Binding CheckAppUpdateCommand}"
+                                    Padding="12,8" CornerRadius="8" Background="#141A30" BorderBrush="#253050" BorderThickness="1" Cursor="Hand">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <PathIcon Data="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0020 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 004 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" Width="11" Height="11" Foreground="#38BDF8" />
+                                    <TextBlock Text="Проверить" FontSize="11" FontWeight="SemiBold" Foreground="#38BDF8" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button Command="{Binding ApplyAppUpdateCommand}"
+                                    IsVisible="{Binding HasAppUpdate}"
+                                    Padding="14,8" CornerRadius="8" Background="#7C3AED" BorderBrush="#8B5CF6" BorderThickness="1" Cursor="Hand" Classes="accent-glow">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <PathIcon Data="M11 15h2v2h-2zm0-8h2v6h-2zm1-5C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" Width="12" Height="12" Foreground="White" />
+                                    <TextBlock Text="Обновить сейчас" FontSize="11" FontWeight="Bold" Foreground="White" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button Command="{Binding OpenDesktopReleasesCommand}"
+                                    Padding="10,8" CornerRadius="8" Background="#141A30" BorderBrush="#253050" BorderThickness="1" Cursor="Hand" ToolTip.Tip="Открыть релизы на GitHub">
+                                <TextBlock Text="GitHub" FontSize="11" FontWeight="SemiBold" Foreground="#64748B" />
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Version Information Chips -->
+                    <Grid ColumnDefinitions="*,*">
+                        <Border Grid.Column="0" Background="#080C1A" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="8" Padding="12,10" Margin="0,0,8,0">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="ТЕКУЩАЯ ВЕРСИЯ" FontSize="9" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" />
+                                <TextBlock Text="{Binding AppCurrentVersion, StringFormat='v{0}'}" FontSize="13" FontWeight="Bold" Foreground="White" FontFamily="Consolas, monospace" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Column="1" Background="#080C1A" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="8" Padding="12,10" Margin="8,0,0,0">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="ДОСТУПНАЯ ВЕРСИЯ НА GITHUB" FontSize="9" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" />
+                                <TextBlock Text="{Binding AppLatestVersion, StringFormat='v{0}'}" FontSize="13" FontWeight="Bold" Foreground="#38BDF8" FontFamily="Consolas, monospace" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <!-- Release Notes (if update available) -->
+                    <Border IsVisible="{Binding HasAppUpdate}" Background="#080C1A" BorderBrush="#253050" BorderThickness="1" CornerRadius="8" Padding="12,10">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="ЧТО НОВОГО В ЭТОМ РЕЛИЗЕ:" FontSize="9.5" FontWeight="Bold" Foreground="#94A3B8" FontFamily="Consolas, monospace" />
+                            <TextBlock Text="{Binding AppReleaseNotes}" FontSize="11" Foreground="#CBD5E1" TextWrapping="Wrap" MaxHeight="80" FontFamily="Consolas, monospace" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+
             <!-- 1.5 LOG LEVEL SETTINGS CARD -->
             <Border Classes="glass-card" Padding="20,16">
                 <Grid ColumnDefinitions="*,Auto">
