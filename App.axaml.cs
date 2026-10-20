@@ -25,6 +25,9 @@ public partial class App : Application
             WindowsSystemProxyService.CleanStaleProxyIfPresent();
             VpnCoreService.CleanupRunningConfig();
 
+            // Background initialization of rule sets and stubs for instant core startups
+            _ = CoreEnvironmentService.EnsureRuleSetsAsync();
+
             var mainVm = new MainWindowViewModel();
             desktop.MainWindow = new MainWindow
             {
