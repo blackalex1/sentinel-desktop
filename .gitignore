@@ -6,12 +6,14 @@ pnpm-debug.log*
 dist/
 dist-ssr/
 build/bin/
-binaries/
+binaries/*
+!binaries/wintun.dll
 src-tauri/target/
 src-tauri/binaries/
 *.zip
 *.exe
 *.dll
+!binaries/wintun.dll
 .agents/
 .gemini/
 .env

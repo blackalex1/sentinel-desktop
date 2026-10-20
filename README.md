@@ -1,4 +1,4 @@
-# sentinel-desktop — Sentinel Secure Connect Desktop v1.0
+# sentinel-desktop — Sentinel Secure Connect Desktop v0.0.1
 
 **sentinel-desktop** — Нативное прикладное VPN-приложение для Windows 11, построенное на базе стека **Tauri 2.0 + React 18 (TypeScript)**, с поддержкой прокси-ядер **Xray-core**, **Sing-box** и **Hysteria 2**, загрузчиком версий с GitHub Releases / Pre-Releases, и прямой интеграцией с **sentinel-mobile (Android Hotspot SOCKS5)** и **sentinel-panel**.
 
