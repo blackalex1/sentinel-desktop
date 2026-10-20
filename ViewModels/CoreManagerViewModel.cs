@@ -427,6 +427,10 @@ public partial class CoreManagerViewModel : ViewModelBase
     public async Task ApplyAppUpdateAsync()
     {
         ShowStatus("Загрузка и установка обновления...");
+        if (string.IsNullOrWhiteSpace(AppUpdateService.Instance.DownloadUrl))
+        {
+            await AppUpdateService.Instance.CheckForUpdateAsync(force: true);
+        }
         await AppUpdateService.Instance.DownloadAndInstallUpdateAsync((p, msg) =>
         {
             Dispatcher.UIThread.Post(() => ShowStatus(msg));
