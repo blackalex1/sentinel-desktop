@@ -253,8 +253,10 @@ public static class CoreEnvironmentService
     {
         try
         {
+            var cleanFileName = Path.GetFileName(ruleFileName);
+            if (string.IsNullOrWhiteSpace(cleanFileName)) return;
             var rulesDir = GetRulesDirectory();
-            var targetPath = Path.Combine(rulesDir, ruleFileName);
+            var targetPath = Path.Combine(rulesDir, cleanFileName);
             if (!File.Exists(targetPath) || new FileInfo(targetPath).Length == 0)
             {
                 File.WriteAllBytes(targetPath, EmptySrsStub);
