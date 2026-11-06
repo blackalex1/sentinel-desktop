@@ -133,7 +133,22 @@ public class CoreLogStreamer
 
         Task.Run(async () =>
         {
-            var uri = new Uri($"ws://{clashAddr}/logs?level=debug");
+            var cleanHost = clashAddr.Replace("ws://", "").Replace("wss://", "");
+            var parts = cleanHost.Split(':');
+            var host = string.IsNullOrWhiteSpace(parts[0]) ? "127.0.0.1" : parts[0];
+            int port = parts.Length > 1 && int.TryParse(parts[1], out var p) ? p : 9090;
+
+            // Enforce secure WSS for remote hosts; permit local loopback for IPC core streaming
+            bool isLoopback = host == "127.0.0.1" || host == "localhost" || host == "::1";
+            var builder = new UriBuilder
+            {
+                Scheme = isLoopback ? Uri.UriSchemeWs : Uri.UriSchemeWss,
+                Host = host,
+                Port = port,
+                Path = "logs",
+                Query = "level=debug"
+            };
+            var uri = builder.Uri;
             for (int attempt = 0; attempt < 80 && !ct.IsCancellationRequested; attempt++)
             {
                 try
