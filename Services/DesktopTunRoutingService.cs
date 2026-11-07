@@ -51,15 +51,22 @@ public static class DesktopTunRoutingService
 
             LoggingService.Instance.LogApp($"[TUN-Route] Конфигурация IP, DNS и маршрутов для адаптера '{actualInterfaceName}'...");
 
-            // 1. Set static IP and default gateway
+            // 1. Set static IPv4 and default gateway
             RunProcess("netsh", $"interface ip set address name=\"{actualInterfaceName}\" source=static addr=172.19.0.1 mask=255.255.255.252 gateway=172.19.0.2 gwmetric=1");
 
-            // 2. Set DNS servers
-            var primaryDns = dnsServers?.FirstOrDefault(s => !s.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) ?? "8.8.8.8";
-            var secondaryDns = dnsServers?.Where(s => !s.StartsWith("https://", StringComparison.OrdinalIgnoreCase)).Skip(1).FirstOrDefault() ?? "1.1.1.1";
+            // 1b. Dual-Stack IPv6: Set static ULA IPv6 address and default route (RFC 4193 ULA fd00::/64)
+            RunProcess("netsh", $"interface ipv6 set address interface=\"{actualInterfaceName}\" address=fd00::2/64 advertise=no");
+            RunProcess("netsh", $"interface ipv6 add route prefix=::/0 interface=\"{actualInterfaceName}\" nexthop=fd00::1 metric=1");
+
+            // 2. Set DNS servers (IPv4 + IPv6)
+            var primaryDns = dnsServers?.FirstOrDefault(s => !s.StartsWith("https://", StringComparison.OrdinalIgnoreCase) && !s.Contains(':')) ?? "8.8.8.8";
+            var secondaryDns = dnsServers?.Where(s => !s.StartsWith("https://", StringComparison.OrdinalIgnoreCase) && !s.Contains(':')).Skip(1).FirstOrDefault() ?? "1.1.1.1";
 
             RunProcess("netsh", $"interface ip set dns name=\"{actualInterfaceName}\" source=static addr={primaryDns} validate=no");
             RunProcess("netsh", $"interface ip add dns name=\"{actualInterfaceName}\" addr={secondaryDns} index=2 validate=no");
+
+            var primaryDns6 = dnsServers?.FirstOrDefault(s => !s.StartsWith("https://", StringComparison.OrdinalIgnoreCase) && s.Contains(':')) ?? "2001:4860:4860::8888";
+            RunProcess("netsh", $"interface ipv6 set dnsservers name=\"{actualInterfaceName}\" source=static address={primaryDns6} validate=no");
 
             // 3. Add static route to proxy server via original physical gateway to avoid routing loops
             if (!string.IsNullOrWhiteSpace(serverAddress))
@@ -128,6 +135,8 @@ public static class DesktopTunRoutingService
             {
                 RunProcess("netsh", $"interface ip set address name=\"{_lastActualInterfaceName}\" source=dhcp");
                 RunProcess("netsh", $"interface ip set dns name=\"{_lastActualInterfaceName}\" source=dhcp");
+                RunProcess("netsh", $"interface ipv6 delete route prefix=::/0 interface=\"{_lastActualInterfaceName}\"");
+                RunProcess("netsh", $"interface ipv6 delete address interface=\"{_lastActualInterfaceName}\" address=fd00::2");
             }
         }
         catch { }
