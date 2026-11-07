@@ -351,7 +351,7 @@ public static class CoreConfigBuilder
                 settings = new
                 {
                     name = "sentinel-tun",
-                    address = new[] { "172.19.0.1/30" },
+                    address = new[] { "172.19.0.1/30", "fd00::2/64" },
                     autoRoute = true,
                     strictRoute = true,
                     stack = "mixed",
