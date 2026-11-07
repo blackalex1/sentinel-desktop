@@ -14,7 +14,7 @@ public class AppUpdateService
     private static readonly Lazy<AppUpdateService> _instance = new(() => new AppUpdateService());
     public static AppUpdateService Instance => _instance.Value;
 
-    public const string CurrentVersion = "0.0.3";
+    public const string CurrentVersion = "0.0.4";
     private readonly HttpClient _httpClient;
 
     public string LatestVersion { get; private set; } = CurrentVersion;
