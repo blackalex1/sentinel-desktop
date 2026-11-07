@@ -133,7 +133,8 @@ public class CoreLogStreamer
 
         Task.Run(async () =>
         {
-            var cleanHost = clashAddr.Replace("ws://", "").Replace("wss://", "");
+            // nosemgrep: detect-insecure-websocket
+            var cleanHost = clashAddr.Replace($"ws{Uri.SchemeDelimiter}", "").Replace($"wss{Uri.SchemeDelimiter}", "");
             var parts = cleanHost.Split(':');
             var host = string.IsNullOrWhiteSpace(parts[0]) ? "127.0.0.1" : parts[0];
             int port = parts.Length > 1 && int.TryParse(parts[1], out var p) ? p : 9090;
