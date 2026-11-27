@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -114,6 +115,71 @@ public static class SentinelCoreNative
 
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "SentinelGetPreset")]
     private static extern IntPtr _GetPreset(IntPtr presetId);
+
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "SentinelGetConfigurationSchema")]
+    private static extern IntPtr _GetConfigurationSchema(IntPtr lang);
+
+    private static readonly ConcurrentDictionary<string, SentinelConfigurationSchema> _schemaCache = new(StringComparer.OrdinalIgnoreCase);
+
+    public static void InvalidateSchemaCache()
+    {
+        _schemaCache.Clear();
+    }
+
+    public static string GetConfigurationSchemaJson(string lang = "ru")
+    {
+        var lPtr = StringToPtr(lang);
+        try
+        {
+            var ptr = _GetConfigurationSchema(lPtr);
+            return PtrToStringAndFree(ptr);
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException)
+        {
+            return string.Empty;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[SentinelCoreNative] GetConfigurationSchema error: {ex.Message}");
+            return string.Empty;
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(lPtr);
+        }
+    }
+
+    public static SentinelConfigurationSchema? GetConfigurationSchema(string lang = "ru")
+    {
+        var normalizedLang = string.Equals(lang, "en", StringComparison.OrdinalIgnoreCase) ? "en" : "ru";
+        if (_schemaCache.TryGetValue(normalizedLang, out var cached))
+        {
+            return cached;
+        }
+
+        var json = GetConfigurationSchemaJson(normalizedLang);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<SentinelConfigurationSchema>(json);
+            if (parsed != null && ((parsed.OutboundProtocols != null && parsed.OutboundProtocols.Count > 0) ||
+                                   (parsed.Protocols != null && parsed.Protocols.Count > 0)))
+            {
+                _schemaCache[normalizedLang] = parsed;
+                return parsed;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[SentinelCoreNative] Schema JSON parse error: {ex.Message}");
+        }
+
+        return null;
+    }
 
     public static string GetVersion()
     {

@@ -105,6 +105,15 @@ public partial class ServerProfile : ObservableObject
     [JsonPropertyName("transport")]
     public string Transport { get; set; } = "tcp";
 
+    [JsonPropertyName("headerType")]
+    public string? HeaderType { get; set; }
+
+    [JsonPropertyName("xhttpMode")]
+    public string? XhttpMode { get; set; }
+
+    [JsonPropertyName("multiMode")]
+    public bool MultiMode { get; set; }
+
     [JsonPropertyName("path")]
     public string? Path { get; set; }
 

@@ -191,6 +191,10 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             Servers.LoadServers();
         }
+        else if (target == "hotspot" || target == "connect")
+        {
+            Hotspot.RefreshOnActivated();
+        }
         else if (target == "dashboard" || string.IsNullOrEmpty(target))
         {
             Dashboard.LoadInitialData();

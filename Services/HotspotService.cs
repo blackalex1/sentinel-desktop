@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using SentinelDesktop.Models;
 
@@ -37,7 +39,13 @@ public class HotspotService
 
     private HotspotService()
     {
-        _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
+        var handler = new SocketsHttpHandler
+        {
+            UseProxy = false,
+            PooledConnectionLifetime = TimeSpan.Zero,
+            ConnectTimeout = TimeSpan.FromSeconds(3)
+        };
+        _httpClient = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(60) };
     }
 
     public async Task<List<string>> GetCandidateGatewaysAsync()
@@ -45,62 +53,105 @@ public class HotspotService
         return await Task.Run(() =>
         {
             var wifiGateways = new List<string>();
+            var wifiDhcpServers = new List<string>();
             var otherGateways = new List<string>();
+            var otherDhcpServers = new List<string>();
+
+            static bool IsUsableIpv4(IPAddress? ipAddress, out string addr)
+            {
+                addr = string.Empty;
+                if (ipAddress == null || ipAddress.AddressFamily != AddressFamily.InterNetwork)
+                    return false;
+
+                addr = ipAddress.ToString();
+                return !string.IsNullOrEmpty(addr) &&
+                       !addr.StartsWith("0.0.0.0", StringComparison.Ordinal) &&
+                       !addr.StartsWith("127.", StringComparison.Ordinal) &&
+                       !addr.StartsWith("169.254.", StringComparison.Ordinal) &&
+                       !addr.StartsWith("172.19.", StringComparison.Ordinal);
+            }
+
+            static void AddUnique(List<string> list, string addr)
+            {
+                if (!list.Contains(addr)) list.Add(addr);
+            }
 
             try
             {
                 var interfaces = NetworkInterface.GetAllNetworkInterfaces();
                 foreach (var iface in interfaces)
                 {
-                    if (iface.OperationalStatus != OperationalStatus.Up) continue;
-                    if (iface.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
-
-                    var name = iface.Name.ToLowerInvariant();
-                    var desc = iface.Description.ToLowerInvariant();
-
-                    // Filter out known virtual / VM / VPN adapters
-                    bool isVirtual = name.Contains("vmware") || desc.Contains("vmware") ||
-                                     name.Contains("virtualbox") || desc.Contains("virtualbox") ||
-                                     name.Contains("hyper-v") || desc.Contains("hyper-v") ||
-                                     name.Contains("vethernet") || desc.Contains("vethernet") ||
-                                     name.Contains("wsl") || desc.Contains("wsl") ||
-                                     name.Contains("tun") || desc.Contains("tun") ||
-                                     name.Contains("tap") || desc.Contains("tap") ||
-                                     name.Contains("wintun") || desc.Contains("wintun");
-
-                    bool isWifi = iface.NetworkInterfaceType == NetworkInterfaceType.Wireless80211 ||
-                                  name.Contains("wi-fi") || name.Contains("wifi") ||
-                                  name.Contains("беспроводн") || desc.Contains("wireless") || desc.Contains("wi-fi");
-
-                    var ipProps = iface.GetIPProperties();
-                    foreach (var gw in ipProps.GatewayAddresses)
+                    try
                     {
-                        var addr = gw.Address.ToString();
-                        if (!string.IsNullOrEmpty(addr) &&
-                            !addr.Contains(':') &&
-                            !addr.StartsWith("0.0.0.0") &&
-                            !addr.StartsWith("127."))
+                        if (iface.OperationalStatus != OperationalStatus.Up) continue;
+                        if (iface.NetworkInterfaceType == NetworkInterfaceType.Loopback ||
+                            iface.NetworkInterfaceType == NetworkInterfaceType.Tunnel) continue;
+
+                        var name = iface.Name.ToLowerInvariant();
+                        var desc = iface.Description.ToLowerInvariant();
+
+                        bool isHypervisorOrVpn =
+                            name.Contains("vmware") || desc.Contains("vmware") ||
+                            name.Contains("virtualbox") || desc.Contains("virtualbox") ||
+                            name.Contains("hyper-v") || desc.Contains("hyper-v") ||
+                            name.Contains("vethernet") || desc.Contains("vethernet") ||
+                            name.Contains("wsl") || desc.Contains("wsl") ||
+                            name.Contains("wintun") || desc.Contains("wintun") ||
+                            name.Contains("wireguard") || desc.Contains("wireguard") ||
+                            name.Contains("openvpn") || desc.Contains("openvpn") ||
+                            name.Contains("tailscale") || desc.Contains("tailscale") ||
+                            name.Contains("zerotier") || desc.Contains("zerotier") ||
+                            name.Contains("sentinel") || desc.Contains("sentinel") ||
+                            name.Contains("singbox") || desc.Contains("singbox") ||
+                            name.Contains("sing-box") || desc.Contains("sing-box") ||
+                            name.Contains("xray") || desc.Contains("xray") ||
+                            name.Contains("radmin") || desc.Contains("radmin") ||
+                            name.Contains("hamachi") || desc.Contains("hamachi");
+
+                        if (isHypervisorOrVpn) continue;
+
+                        bool isTapOrTun =
+                            name.Contains("tun") || desc.Contains("tun") ||
+                            name.Contains("tap") || desc.Contains("tap");
+
+                        // Skip generic TUN/TAP adapters unless the OS classifies the NIC as hardware 802.11 Wi-Fi
+                        if (isTapOrTun && iface.NetworkInterfaceType != NetworkInterfaceType.Wireless80211)
+                            continue;
+
+                        bool isWifi = iface.NetworkInterfaceType == NetworkInterfaceType.Wireless80211 ||
+                                      name.Contains("wi-fi") || name.Contains("wifi") ||
+                                      name.Contains("беспроводн") || desc.Contains("wireless") || desc.Contains("wi-fi");
+
+                        var ipProps = iface.GetIPProperties();
+                        foreach (var gw in ipProps.GatewayAddresses)
                         {
-                            if (isWifi && !wifiGateways.Contains(addr))
+                            if (IsUsableIpv4(gw.Address, out var addr))
                             {
-                                wifiGateways.Add(addr);
+                                AddUnique(isWifi ? wifiGateways : otherGateways, addr);
                             }
-                            else if (!isVirtual && !otherGateways.Contains(addr))
+                        }
+
+                        if (OperatingSystem.IsWindows())
+                        {
+                            foreach (var dhcp in ipProps.DhcpServerAddresses)
                             {
-                                otherGateways.Add(addr);
+                                if (IsUsableIpv4(dhcp, out var addr))
+                                {
+                                    AddUnique(isWifi ? wifiDhcpServers : otherDhcpServers, addr);
+                                }
                             }
                         }
                     }
+                    catch { }
                 }
             }
             catch { }
 
             var result = new List<string>();
-            result.AddRange(wifiGateways);
-            foreach (var og in otherGateways)
-            {
-                if (!result.Contains(og)) result.Add(og);
-            }
+            foreach (var ip in wifiGateways) AddUnique(result, ip);
+            foreach (var ip in wifiDhcpServers) AddUnique(result, ip);
+            foreach (var ip in otherGateways) AddUnique(result, ip);
+            foreach (var ip in otherDhcpServers) AddUnique(result, ip);
 
             if (result.Count == 0)
             {
@@ -111,36 +162,58 @@ public class HotspotService
         });
     }
 
-    public async Task<HotspotDiscoveryResult> ScanAllGatewaysAsync(List<string> candidateGateways)
+    public async Task<HotspotDiscoveryResult> ScanAllGatewaysAsync(List<string>? candidateGateways, CancellationToken cancellationToken = default)
     {
         if (candidateGateways == null || candidateGateways.Count == 0)
         {
             candidateGateways = await GetCandidateGatewaysAsync();
         }
 
-        var tasks = candidateGateways
-            .Where(ip => !string.IsNullOrWhiteSpace(ip) && !ip.Contains(':'))
-            .Select(ip => ProbePairingServerAsync(ip))
+        var uniqueIps = candidateGateways
+            .Select(ip => ip?.Trim() ?? string.Empty)
+            .Where(ip => !string.IsNullOrWhiteSpace(ip) &&
+                         IPAddress.TryParse(ip, out var parsed) &&
+                         parsed.AddressFamily == AddressFamily.InterNetwork)
+            .Distinct(StringComparer.Ordinal)
             .ToList();
 
-        var results = await Task.WhenAll(tasks);
-        var found = results.FirstOrDefault(r => r.Found);
+        if (uniqueIps.Count == 0)
+        {
+            return new HotspotDiscoveryResult
+            {
+                Found = false,
+                ErrorMessage = "Устройства с активной раздачей Sentinel не обнаружены в сети"
+            };
+        }
+
+        var (found, firstFailure) = await RunUntilFirstMatchAsync(
+            uniqueIps.Select<string, Func<CancellationToken, Task<HotspotDiscoveryResult>>>(
+                ip => ct => ProbePairingServerAsync(ip, ct)),
+            res => res.Found,
+            cancellationToken).ConfigureAwait(false);
+
         if (found != null)
         {
             return found;
         }
 
-        return results.FirstOrDefault() ?? new HotspotDiscoveryResult
+        if (uniqueIps.Count == 1 && firstFailure != null)
+        {
+            return firstFailure;
+        }
+
+        return new HotspotDiscoveryResult
         {
             Found = false,
-            ErrorMessage = "Устройства с активной раздачей Sentinel не обнаружены в сети"
+            GatewayIP = uniqueIps[0],
+            ErrorMessage = $"Телефон не обнаружен (проверены: {string.Join(", ", uniqueIps)})"
         };
     }
 
-    public async Task<HotspotDiscoveryResult> ProbePairingServerAsync(string targetIP)
+    public async Task<HotspotDiscoveryResult> ProbePairingServerAsync(string targetIP, CancellationToken cancellationToken = default)
     {
-        var ip = targetIP.Trim();
-        if (string.IsNullOrWhiteSpace(ip) || ip.Contains(':'))
+        var ip = targetIP?.Trim() ?? string.Empty;
+        if (!IPAddress.TryParse(ip, out var parsedIp) || parsedIp.AddressFamily != AddressFamily.InterNetwork)
         {
             return new HotspotDiscoveryResult
             {
@@ -149,49 +222,48 @@ public class HotspotService
             };
         }
 
-        // 1. Probe HTTP Pairing Server
-        foreach (var port in CandidatePorts)
+        if (cancellationToken.IsCancellationRequested)
         {
-            try
+            return new HotspotDiscoveryResult
             {
-                var pingUri = $"http://{ip}:{port}/pair/ping";
-                using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromMilliseconds(1000));
-                var response = await _httpClient.GetAsync(pingUri, cts.Token);
-
-                if (response.IsSuccessStatusCode)
-                {
-                    return new HotspotDiscoveryResult
-                    {
-                        Found = true,
-                        GatewayIP = ip,
-                        PairingPort = port,
-                        ProxyType = "SOCKS5",
-                        SocksPort = 10808,
-                        HttpPort = 10809,
-                        AuthRequired = false
-                    };
-                }
-            }
-            catch { }
+                Found = false,
+                GatewayIP = ip,
+                ErrorMessage = $"Поиск на {ip} отменен"
+            };
         }
 
-        // 2. Direct TCP Fallback: Check if SOCKS5 or HTTP proxy is open on target IP
-        foreach (var pPort in ProxyFallbackPorts)
+        // 1. Probe all HTTP pairing ports concurrently (canceling siblings on first hit)
+        var (httpHit, _) = await RunUntilFirstMatchAsync(
+            CandidatePorts.Select<int, Func<CancellationToken, Task<HotspotDiscoveryResult?>>>(
+                port => ct => ProbeHttpPairingPortAsync(ip, port, ct)),
+            res => res != null && res.Found,
+            cancellationToken).ConfigureAwait(false);
+
+        if (httpHit != null)
         {
-            if (await TestTcpPortAsync(ip, pPort, 800))
+            return httpHit;
+        }
+
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return new HotspotDiscoveryResult
             {
-                var isHttp = pPort == 10809 || pPort == 20809;
-                return new HotspotDiscoveryResult
-                {
-                    Found = true,
-                    GatewayIP = ip,
-                    PairingPort = 18080,
-                    ProxyType = isHttp ? "HTTP" : "SOCKS5",
-                    SocksPort = pPort,
-                    HttpPort = pPort,
-                    AuthRequired = false
-                };
-            }
+                Found = false,
+                GatewayIP = ip,
+                ErrorMessage = $"Поиск на {ip} отменен"
+            };
+        }
+
+        // 2. Direct TCP Fallback: Check concurrently if SOCKS5 or HTTP proxy is open on target IP
+        var (tcpHit, _) = await RunUntilFirstMatchAsync(
+            ProxyFallbackPorts.Select<int, Func<CancellationToken, Task<HotspotDiscoveryResult?>>>(
+                pPort => ct => ProbeTcpFallbackPortAsync(ip, pPort, ct)),
+            res => res != null && res.Found,
+            cancellationToken).ConfigureAwait(false);
+
+        if (tcpHit != null)
+        {
+            return tcpHit;
         }
 
         return new HotspotDiscoveryResult
@@ -200,6 +272,84 @@ public class HotspotService
             GatewayIP = ip,
             ErrorMessage = $"Телефон ({ip}) не отвечает на портах сопряжения и прокси"
         };
+    }
+
+    private static async Task<(T? match, T? firstResult)> RunUntilFirstMatchAsync<T>(
+        IEnumerable<Func<CancellationToken, Task<T>>> taskFactories,
+        Func<T, bool> isMatch,
+        CancellationToken cancellationToken) where T : class?
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var pending = taskFactories.Select(factory => factory(cts.Token)).ToList();
+
+        T? firstResult = default;
+        while (pending.Count > 0)
+        {
+            var completed = await Task.WhenAny(pending).ConfigureAwait(false);
+            pending.Remove(completed);
+
+            var result = await completed.ConfigureAwait(false);
+            if (result != null)
+            {
+                firstResult ??= result;
+                if (isMatch(result))
+                {
+                    cts.Cancel();
+                    try { await Task.WhenAll(pending).ConfigureAwait(false); } catch { }
+                    return (result, firstResult);
+                }
+            }
+        }
+
+        return (default, firstResult);
+    }
+
+    private async Task<HotspotDiscoveryResult?> ProbeHttpPairingPortAsync(string ip, int port, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var pingUri = $"http://{ip}:{port}/pair/ping";
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromMilliseconds(1500));
+            using var response = await _httpClient.GetAsync(pingUri, cts.Token).ConfigureAwait(false);
+
+            if (response.IsSuccessStatusCode)
+            {
+                return new HotspotDiscoveryResult
+                {
+                    Found = true,
+                    GatewayIP = ip,
+                    PairingPort = port,
+                    ProxyType = "SOCKS5",
+                    SocksPort = 10808,
+                    HttpPort = 10809,
+                    AuthRequired = false
+                };
+            }
+        }
+        catch { }
+
+        return null;
+    }
+
+    private static async Task<HotspotDiscoveryResult?> ProbeTcpFallbackPortAsync(string ip, int pPort, CancellationToken cancellationToken)
+    {
+        if (await TestTcpPortAsync(ip, pPort, 800, cancellationToken).ConfigureAwait(false))
+        {
+            var isHttp = pPort == 10809 || pPort == 20809;
+            return new HotspotDiscoveryResult
+            {
+                Found = true,
+                GatewayIP = ip,
+                PairingPort = 18080,
+                ProxyType = isHttp ? "HTTP" : "SOCKS5",
+                SocksPort = pPort,
+                HttpPort = pPort,
+                AuthRequired = false
+            };
+        }
+
+        return null;
     }
 
     public async Task<(bool success, ServerProfile? server, string? error)> RequestPairingAsync(string ip, int port, string pin)
@@ -517,11 +667,12 @@ public class HotspotService
         catch { }
     }
 
-    private static async Task<bool> TestTcpPortAsync(string ip, int port, int timeoutMs = 800)
+    private static async Task<bool> TestTcpPortAsync(string ip, int port, int timeoutMs = 800, CancellationToken cancellationToken = default)
     {
         try
         {
-            using var cts = new System.Threading.CancellationTokenSource(timeoutMs);
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(timeoutMs);
             using var socket = new Socket(SocketType.Stream, ProtocolType.Tcp);
             socket.NoDelay = true;
             await socket.ConnectAsync(ip, port, cts.Token).ConfigureAwait(false);

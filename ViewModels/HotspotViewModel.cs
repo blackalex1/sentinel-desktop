@@ -1,9 +1,14 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
-using System.Threading.Tasks;
+using System.Net;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Security.Cryptography;
+using System.Threading;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SentinelDesktop.Models;
@@ -13,6 +18,10 @@ namespace SentinelDesktop.ViewModels;
 
 public partial class HotspotViewModel : ViewModelBase
 {
+    private string? _lastAutoTargetIp = "192.168.43.1";
+    private readonly HashSet<string> _knownAutoGateways = new(StringComparer.Ordinal);
+    private CancellationTokenSource? _networkDebounceCts;
+    private readonly object _debounceLock = new();
 
     [ObservableProperty]
     private ObservableCollection<string> _candidateGateways = new();
@@ -21,9 +30,11 @@ public partial class HotspotViewModel : ViewModelBase
     private string _targetIp = "192.168.43.1";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DiscoveryStatusText))]
     private bool _isScanning;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DiscoveryStatusText))]
     private bool _isPairing;
 
     [ObservableProperty]
@@ -60,42 +71,127 @@ public partial class HotspotViewModel : ViewModelBase
     public HotspotViewModel()
     {
         GeneratePin();
-        LoadGateways();
+        SubscribeToNetworkChanges();
+        _ = RefreshGatewaysAndProbeAsync(autoProbe: true);
     }
 
-    private async void LoadGateways()
+    private void SubscribeToNetworkChanges()
     {
         try
         {
-            var list = await HotspotService.Instance.GetCandidateGatewaysAsync();
-            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            NetworkChange.NetworkAddressChanged += OnNetworkChanged;
+            NetworkChange.NetworkAvailabilityChanged += OnNetworkAvailabilityChanged;
+        }
+        catch { }
+    }
+
+    private void OnNetworkChanged(object? sender, EventArgs e)
+    {
+        ScheduleNetworkRefresh();
+    }
+
+    private void OnNetworkAvailabilityChanged(object? sender, NetworkAvailabilityEventArgs e)
+    {
+        ScheduleNetworkRefresh();
+    }
+
+    private void ScheduleNetworkRefresh()
+    {
+        CancellationTokenSource cts;
+        lock (_debounceLock)
+        {
+            _networkDebounceCts?.Cancel();
+            _networkDebounceCts?.Dispose();
+            _networkDebounceCts = new CancellationTokenSource();
+            cts = _networkDebounceCts;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
             {
-                CandidateGateways.Clear();
-                foreach (var gw in list)
+                // Debounce bursts of Windows network events while DHCP/gateway settles
+                await Task.Delay(600, cts.Token);
+                if (!IsScanning && !IsPairing)
                 {
-                    CandidateGateways.Add(gw);
+                    await RefreshGatewaysAndProbeAsync(autoProbe: true, cts.Token);
                 }
-                if (list.Count > 0)
+            }
+            catch (OperationCanceledException) { }
+            catch { }
+        });
+    }
+
+    public void RefreshOnActivated()
+    {
+        if (IsScanning || IsPairing) return;
+        _ = RefreshGatewaysAndProbeAsync(autoProbe: true);
+    }
+
+    private async Task<List<string>> RefreshGatewaysInternalAsync()
+    {
+        var list = await HotspotService.Instance.GetCandidateGatewaysAsync();
+
+        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            CandidateGateways.Clear();
+            foreach (var gw in list)
+            {
+                CandidateGateways.Add(gw);
+                _knownAutoGateways.Add(gw);
+            }
+
+            var currentTarget = TargetIp?.Trim();
+            bool targetWasAuto = string.IsNullOrWhiteSpace(currentTarget) ||
+                                 string.Equals(currentTarget, _lastAutoTargetIp, StringComparison.Ordinal);
+            bool targetDisappearedAutoGateway = !string.IsNullOrEmpty(currentTarget) &&
+                                                _knownAutoGateways.Contains(currentTarget) &&
+                                                !list.Contains(currentTarget);
+
+            if ((targetWasAuto || targetDisappearedAutoGateway) && list.Count > 0)
+            {
+                if (!string.Equals(currentTarget, list[0], StringComparison.Ordinal))
                 {
                     TargetIp = list[0];
                 }
-            });
+                _lastAutoTargetIp = list[0];
+            }
 
-            // Automatic background fast probe on startup
-            _ = Task.Run(async () =>
+            if (DiscoveryResult?.Found == true &&
+                !string.IsNullOrEmpty(DiscoveryResult.GatewayIP) &&
+                !list.Contains(DiscoveryResult.GatewayIP) &&
+                (targetWasAuto || targetDisappearedAutoGateway))
             {
-                var autoResult = await HotspotService.Instance.ScanAllGatewaysAsync(list);
-                if (autoResult.Found)
+                DiscoveryResult = null;
+                StatusMessage = string.Empty;
+            }
+        });
+
+        return list;
+    }
+
+    private async Task RefreshGatewaysAndProbeAsync(bool autoProbe, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var list = await RefreshGatewaysInternalAsync();
+            if (!autoProbe || cancellationToken.IsCancellationRequested || IsScanning || IsPairing)
+                return;
+
+            var autoResult = await HotspotService.Instance.ScanAllGatewaysAsync(list, cancellationToken);
+            if (autoResult.Found && !cancellationToken.IsCancellationRequested)
+            {
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                 {
-                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                    {
-                        DiscoveryResult = autoResult;
-                        TargetIp = autoResult.GatewayIP;
-                        StatusMessage = $"🟢 Телефон автоматически обнаружен на {autoResult.GatewayIP}:{autoResult.PairingPort}";
-                        StatusColor = "#34D399";
-                    });
-                }
-            });
+                    if (IsScanning || IsPairing) return;
+                    DiscoveryResult = autoResult;
+                    TargetIp = autoResult.GatewayIP;
+                    _lastAutoTargetIp = autoResult.GatewayIP;
+                    _knownAutoGateways.Add(autoResult.GatewayIP);
+                    StatusMessage = $"🟢 Телефон автоматически обнаружен на {autoResult.GatewayIP}:{autoResult.PairingPort}";
+                    StatusColor = "#34D399";
+                });
+            }
         }
         catch { }
     }
@@ -104,6 +200,7 @@ public partial class HotspotViewModel : ViewModelBase
     public void SelectGateway(string ip)
     {
         TargetIp = ip;
+        _lastAutoTargetIp = null;
         _ = ProbePhoneAsync();
     }
 
@@ -116,34 +213,41 @@ public partial class HotspotViewModel : ViewModelBase
     [RelayCommand]
     public async Task ProbePhoneAsync()
     {
+        if (IsScanning) return;
+
         IsScanning = true;
         StatusMessage = "Сканирование всех сетевых шлюзов на наличие Sentinel Mobile...";
         StatusColor = "#38BDF8";
 
         try
         {
-            HotspotDiscoveryResult res;
+            var freshGateways = await RefreshGatewaysInternalAsync();
 
-            if (!string.IsNullOrWhiteSpace(TargetIp))
+            var targets = new List<string>();
+            var typedIp = TargetIp?.Trim();
+            if (!string.IsNullOrWhiteSpace(typedIp) &&
+                IPAddress.TryParse(typedIp, out var parsedIp) &&
+                parsedIp.AddressFamily == AddressFamily.InterNetwork)
             {
-                res = await HotspotService.Instance.ProbePairingServerAsync(TargetIp);
-                if (!res.Found)
+                targets.Add(typedIp);
+            }
+
+            foreach (var gw in freshGateways)
+            {
+                if (!targets.Contains(gw))
                 {
-                    // If target IP probe fails, search all other gateways concurrently
-                    var allGateways = CandidateGateways.ToList();
-                    res = await HotspotService.Instance.ScanAllGatewaysAsync(allGateways);
+                    targets.Add(gw);
                 }
             }
-            else
-            {
-                var allGateways = CandidateGateways.ToList();
-                res = await HotspotService.Instance.ScanAllGatewaysAsync(allGateways);
-            }
+
+            var res = await HotspotService.Instance.ScanAllGatewaysAsync(targets);
 
             DiscoveryResult = res;
             if (res.Found)
             {
                 TargetIp = res.GatewayIP;
+                _lastAutoTargetIp = res.GatewayIP;
+                _knownAutoGateways.Add(res.GatewayIP);
                 StatusMessage = $"🟢 Телефон обнаружен на {res.GatewayIP} (порт {res.PairingPort})";
                 StatusColor = "#34D399";
             }

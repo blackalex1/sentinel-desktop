@@ -2,7 +2,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:SentinelDesktop.ViewModels"
              x:Class="SentinelDesktop.Views.Hotspot.HotspotView"
-             x:DataType="vm:HotspotViewModel">
+             x:DataType="vm:HotspotViewModel"
+             x:Name="Root">
 
     <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
         <StackPanel Spacing="22" Margin="32,24,32,28">
@@ -41,7 +42,7 @@
                         <!-- Quick Gateway IP Selectors -->
                         <StackPanel Spacing="6">
                             <TextBlock Text="Обнаруженные сетевые шлюзы:" FontSize="11" Foreground="#94A3B8" />
-                            <ItemsControl ItemsSource="{Binding CandidateGateways}">
+                            <ItemsControl ItemsSource="{Binding CandidateGateways}" x:CompileBindings="False">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <WrapPanel Orientation="Horizontal" />
@@ -76,6 +77,7 @@
 
                                 <Button Grid.Column="2"
                                         Command="{Binding ProbePhoneCommand}"
+                                        IsEnabled="{Binding !IsScanning}"
                                         Classes="segment-btn"
                                         Padding="14,8"
                                         CornerRadius="10">

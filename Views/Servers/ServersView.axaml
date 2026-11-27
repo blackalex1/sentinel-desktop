@@ -170,7 +170,7 @@
                 </DockPanel>
 
                 <!-- Grid Fields -->
-                <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,*,*" x:CompileBindings="False">
+                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="*,*,*" x:CompileBindings="False">
                     <!-- Row 0: Name, Protocol, Country -->
                     <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4" Margin="0,0,6,10">
                         <TextBlock Text="ИМЯ УЗЛА" FontSize="10" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" />
@@ -179,7 +179,7 @@
 
                     <StackPanel Grid.Row="0" Grid.Column="1" Spacing="4" Margin="6,0,6,10">
                         <TextBlock Text="ПРОТОКОЛ" FontSize="10" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" />
-                        <ComboBox ItemsSource="{Binding AvailableProtocols}" SelectedItem="{Binding EditingServer.Protocol, Mode=TwoWay}" HorizontalAlignment="Stretch" CornerRadius="8" Background="#080C1A" BorderBrush="#1E293B" FontSize="11.5" Height="32" />
+                        <ComboBox ItemsSource="{Binding AvailableProtocols}" SelectedValue="{Binding EditingProtocol, Mode=TwoWay}" SelectedValueBinding="{Binding Value}" DisplayMemberBinding="{Binding Label}" HorizontalAlignment="Stretch" CornerRadius="8" Background="#080C1A" BorderBrush="#1E293B" FontSize="11.5" Height="32" />
                     </StackPanel>
 
                     <StackPanel Grid.Row="0" Grid.Column="2" Spacing="4" Margin="6,0,0,10">
@@ -200,7 +200,7 @@
 
                     <StackPanel Grid.Row="1" Grid.Column="2" Spacing="4" Margin="6,0,0,10">
                         <TextBlock Text="ТРАНСПОРТ" FontSize="10" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" />
-                        <ComboBox ItemsSource="{Binding AvailableTransports}" SelectedItem="{Binding EditingServer.Transport, Mode=TwoWay}" HorizontalAlignment="Stretch" CornerRadius="8" Background="#080C1A" BorderBrush="#1E293B" FontSize="11.5" Height="32" />
+                        <ComboBox ItemsSource="{Binding AvailableTransports}" SelectedValue="{Binding EditingTransport, Mode=TwoWay}" SelectedValueBinding="{Binding Value}" DisplayMemberBinding="{Binding Label}" HorizontalAlignment="Stretch" CornerRadius="8" Background="#080C1A" BorderBrush="#1E293B" FontSize="11.5" Height="32" />
                     </StackPanel>
 
                     <!-- Row 2: UUID / Password, Security, Fingerprint -->
@@ -211,28 +211,44 @@
 
                     <StackPanel Grid.Row="2" Grid.Column="1" Spacing="4" Margin="6,0,6,10">
                         <TextBlock Text="БЕЗОПАСНОСТЬ (SECURITY)" FontSize="10" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" />
-                        <ComboBox ItemsSource="{Binding AvailableSecurities}" SelectedItem="{Binding EditingServer.Security, Mode=TwoWay}" HorizontalAlignment="Stretch" CornerRadius="8" Background="#080C1A" BorderBrush="#1E293B" FontSize="11.5" Height="32" />
+                        <ComboBox ItemsSource="{Binding AvailableSecurities}" SelectedValue="{Binding EditingSecurity, Mode=TwoWay}" SelectedValueBinding="{Binding Value}" DisplayMemberBinding="{Binding Label}" HorizontalAlignment="Stretch" CornerRadius="8" Background="#080C1A" BorderBrush="#1E293B" FontSize="11.5" Height="32" />
                     </StackPanel>
 
-                    <StackPanel Grid.Row="2" Grid.Column="2" Spacing="4" Margin="6,0,0,10">
+                    <StackPanel Grid.Row="2" Grid.Column="2" Spacing="4" Margin="6,0,0,10" IsVisible="{Binding ShowFingerprintField}">
                         <TextBlock Text="FINGERPRINT (TLS)" FontSize="10" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" />
-                        <ComboBox ItemsSource="{Binding AvailableFingerprints}" SelectedItem="{Binding EditingServer.Fp, Mode=TwoWay}" HorizontalAlignment="Stretch" CornerRadius="8" Background="#080C1A" BorderBrush="#1E293B" FontSize="11.5" Height="32" />
+                        <ComboBox ItemsSource="{Binding AvailableFingerprints}" SelectedValue="{Binding EditingFp, Mode=TwoWay}" SelectedValueBinding="{Binding Value}" DisplayMemberBinding="{Binding Label}" HorizontalAlignment="Stretch" CornerRadius="8" Background="#080C1A" BorderBrush="#1E293B" FontSize="11.5" Height="32" />
                     </StackPanel>
 
                     <!-- Row 3: SNI, Reality Public Key, Short ID -->
-                    <StackPanel Grid.Row="3" Grid.Column="0" Spacing="4" Margin="0,0,6,0">
+                    <StackPanel Grid.Row="3" Grid.Column="0" Spacing="4" Margin="0,0,6,10">
                         <TextBlock Text="SNI (SERVER NAME)" FontSize="10" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" />
                         <TextBox Text="{Binding EditingServer.Sni, Mode=TwoWay}" Watermark="Маскировочный домен" CornerRadius="8" Background="#080C1A" BorderBrush="#1E293B" FontSize="11.5" FontFamily="Consolas, monospace" />
                     </StackPanel>
 
-                    <StackPanel Grid.Row="3" Grid.Column="1" Spacing="4" Margin="6,0,6,0">
+                    <StackPanel Grid.Row="3" Grid.Column="1" Spacing="4" Margin="6,0,6,10">
                         <TextBlock Text="PUBLIC KEY (PBK REALITY)" FontSize="10" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" />
                         <TextBox Text="{Binding EditingServer.Pbk, Mode=TwoWay}" Watermark="Ключ Reality (pbk)" CornerRadius="8" Background="#080C1A" BorderBrush="#1E293B" FontSize="11.5" FontFamily="Consolas, monospace" />
                     </StackPanel>
 
-                    <StackPanel Grid.Row="3" Grid.Column="2" Spacing="4" Margin="6,0,0,0">
-                        <TextBlock Text="SHORT ID (SID) / FLOW" FontSize="10" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" />
+                    <StackPanel Grid.Row="3" Grid.Column="2" Spacing="4" Margin="6,0,0,10">
+                        <TextBlock Text="SHORT ID (SID)" FontSize="10" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" />
                         <TextBox Text="{Binding EditingServer.Sid, Mode=TwoWay}" Watermark="sid (напр. 6ba85179e30d4fc2)" CornerRadius="8" Background="#080C1A" BorderBrush="#1E293B" FontSize="11.5" FontFamily="Consolas, monospace" />
+                    </StackPanel>
+
+                    <!-- Row 4: Engine/Condition-Specific Dropdowns from Schema -->
+                    <StackPanel Grid.Row="4" Grid.Column="0" Spacing="4" Margin="0,0,6,0" IsVisible="{Binding ShowFlowField}">
+                        <TextBlock Text="XTLS FLOW" FontSize="10" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" />
+                        <ComboBox ItemsSource="{Binding AvailableFlows}" SelectedValue="{Binding EditingFlow, Mode=TwoWay}" SelectedValueBinding="{Binding Value}" DisplayMemberBinding="{Binding Label}" HorizontalAlignment="Stretch" CornerRadius="8" Background="#080C1A" BorderBrush="#1E293B" FontSize="11.5" Height="32" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="4" Grid.Column="1" Spacing="4" Margin="6,0,6,0" IsVisible="{Binding ShowXhttpModeField}">
+                        <TextBlock Text="XHTTP MODE" FontSize="10" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" />
+                        <ComboBox ItemsSource="{Binding AvailableXhttpModes}" SelectedValue="{Binding EditingXhttpMode, Mode=TwoWay}" SelectedValueBinding="{Binding Value}" DisplayMemberBinding="{Binding Label}" HorizontalAlignment="Stretch" CornerRadius="8" Background="#080C1A" BorderBrush="#1E293B" FontSize="11.5" Height="32" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="4" Grid.Column="2" Spacing="4" Margin="6,0,0,0" IsVisible="{Binding ShowHeaderTypeField}">
+                        <TextBlock Text="TCP ЗАГОЛОВОК" FontSize="10" FontWeight="Bold" Foreground="#64748B" FontFamily="Consolas, monospace" />
+                        <ComboBox ItemsSource="{Binding AvailableHeaderTypes}" SelectedValue="{Binding EditingHeaderType, Mode=TwoWay}" SelectedValueBinding="{Binding Value}" DisplayMemberBinding="{Binding Label}" HorizontalAlignment="Stretch" CornerRadius="8" Background="#080C1A" BorderBrush="#1E293B" FontSize="11.5" Height="32" />
                     </StackPanel>
                 </Grid>
 

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text.Json;
@@ -41,10 +42,61 @@ public partial class ServersViewModel : ViewModelBase
     [ObservableProperty]
     private string _generatedUriPreview = string.Empty;
 
-    public string[] AvailableProtocols { get; } = ["vless", "trojan", "hysteria2", "shadowsocks", "vmess", "tuic"];
-    public string[] AvailableSecurities { get; } = ["reality", "tls", "none"];
-    public string[] AvailableFingerprints { get; } = ["chrome", "firefox", "safari", "ios", "edge", "randomized"];
-    public string[] AvailableTransports { get; } = ["tcp", "ws", "grpc", "http", "quic"];
+    private bool _isSyncingEditorFields;
+
+    [ObservableProperty]
+    private List<SchemaSelectOption> _availableProtocols = new();
+
+    [ObservableProperty]
+    private List<SchemaSelectOption> _availableSecurities = new();
+
+    [ObservableProperty]
+    private List<SchemaSelectOption> _availableFingerprints = new();
+
+    [ObservableProperty]
+    private List<SchemaSelectOption> _availableTransports = new();
+
+    [ObservableProperty]
+    private List<SchemaSelectOption> _availableFlows = new();
+
+    [ObservableProperty]
+    private List<SchemaSelectOption> _availableXhttpModes = new();
+
+    [ObservableProperty]
+    private List<SchemaSelectOption> _availableHeaderTypes = new();
+
+    [ObservableProperty]
+    private string? _editingProtocol;
+
+    [ObservableProperty]
+    private string? _editingTransport;
+
+    [ObservableProperty]
+    private string? _editingSecurity;
+
+    [ObservableProperty]
+    private string? _editingFp;
+
+    [ObservableProperty]
+    private string? _editingFlow;
+
+    [ObservableProperty]
+    private string? _editingXhttpMode;
+
+    [ObservableProperty]
+    private string? _editingHeaderType;
+
+    [ObservableProperty]
+    private bool _showFlowField;
+
+    [ObservableProperty]
+    private bool _showXhttpModeField;
+
+    [ObservableProperty]
+    private bool _showHeaderTypeField;
+
+    [ObservableProperty]
+    private bool _showFingerprintField = true;
 
     [ObservableProperty]
     private string _statusMessage = string.Empty;
@@ -65,6 +117,7 @@ public partial class ServersViewModel : ViewModelBase
     public ServersViewModel()
     {
         CheckCoreStatus();
+        RefreshSchemaOptions(preserveCurrentValues: true);
         LoadServers();
         StorageService.ServersChanged += () =>
         {
@@ -72,8 +125,151 @@ public partial class ServersViewModel : ViewModelBase
         };
         CoreUpdateService.Instance.CoreInstalled += _ =>
         {
-            Avalonia.Threading.Dispatcher.UIThread.Post(CheckCoreStatus);
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                CheckCoreStatus();
+                SentinelCoreNative.InvalidateSchemaCache();
+                RefreshSchemaOptions(preserveCurrentValues: true);
+            });
         };
+        StorageService.CoreTypeChanged += _ =>
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => RefreshSchemaOptions(preserveCurrentValues: true));
+        };
+    }
+
+    private void RefreshSchemaOptions(bool preserveCurrentValues)
+    {
+        var proto = EditingServer?.Protocol ?? EditingProtocol ?? "vless";
+        var opts = CoreSchemaService.GetProfileEditorOptions(
+            proto,
+            preserveCurrentValues ? EditingTransport : null,
+            preserveCurrentValues ? EditingSecurity : null,
+            preserveCurrentValues ? EditingFp : null,
+            preserveCurrentValues ? EditingFlow : null,
+            preserveCurrentValues ? EditingXhttpMode : null,
+            preserveCurrentValues ? EditingHeaderType : null);
+
+        AvailableProtocols = opts.Protocols;
+        AvailableTransports = opts.Transports;
+        AvailableSecurities = opts.Securities;
+        AvailableFingerprints = opts.Fingerprints;
+        AvailableFlows = opts.Flows;
+        AvailableXhttpModes = opts.XhttpModes;
+        AvailableHeaderTypes = opts.HeaderTypes;
+
+        ShowFlowField = opts.ShowFlow;
+        ShowXhttpModeField = opts.ShowXhttpMode;
+        ShowHeaderTypeField = opts.ShowHeaderType;
+        ShowFingerprintField = opts.ShowFingerprint;
+
+        if (EditingServer != null)
+        {
+            _isSyncingEditorFields = true;
+            try
+            {
+                EditingProtocol = ResolveOptionValue(AvailableProtocols, EditingProtocol, proto);
+                EditingTransport = ResolveOptionValue(AvailableTransports, EditingTransport, opts.DefaultTransport ?? "tcp");
+                EditingSecurity = ResolveOptionValue(AvailableSecurities, EditingSecurity, opts.DefaultSecurity ?? "none");
+                EditingFp = ResolveOptionValue(AvailableFingerprints, EditingFp, opts.DefaultFingerprint ?? "chrome");
+                EditingFlow = opts.ShowFlow
+                    ? ResolveOptionValue(AvailableFlows, EditingFlow, opts.DefaultFlow ?? string.Empty)
+                    : string.Empty;
+                EditingXhttpMode = opts.ShowXhttpMode
+                    ? ResolveOptionValue(AvailableXhttpModes, EditingXhttpMode, opts.DefaultXhttpMode ?? "auto")
+                    : string.Empty;
+                EditingHeaderType = opts.ShowHeaderType
+                    ? ResolveOptionValue(AvailableHeaderTypes, EditingHeaderType, opts.DefaultHeaderType ?? string.Empty)
+                    : string.Empty;
+
+                EditingServer.Protocol = EditingProtocol ?? proto;
+                EditingServer.Transport = EditingTransport ?? "tcp";
+                EditingServer.Security = EditingSecurity ?? "none";
+                EditingServer.Fp = EditingFp ?? "chrome";
+                EditingServer.Flow = EditingFlow ?? string.Empty;
+                EditingServer.XhttpMode = EditingXhttpMode ?? string.Empty;
+                EditingServer.HeaderType = EditingHeaderType ?? string.Empty;
+            }
+            finally
+            {
+                _isSyncingEditorFields = false;
+            }
+        }
+    }
+
+    private static string ResolveOptionValue(List<SchemaSelectOption> options, string? desired, string fallback)
+    {
+        if (desired != null)
+        {
+            var match = options.FirstOrDefault(o => o.Value.Equals(desired, StringComparison.OrdinalIgnoreCase));
+            if (match != null) return match.Value;
+        }
+        return options.FirstOrDefault(o => o.Value.Equals(fallback, StringComparison.OrdinalIgnoreCase))?.Value
+            ?? options.FirstOrDefault()?.Value
+            ?? fallback;
+    }
+
+    partial void OnEditingProtocolChanged(string? value)
+    {
+        if (_isSyncingEditorFields || EditingServer == null || string.IsNullOrWhiteSpace(value)) return;
+        EditingServer.Protocol = value;
+        RefreshSchemaOptions(preserveCurrentValues: false);
+        UpdateUriPreview();
+    }
+
+    partial void OnEditingTransportChanged(string? value)
+    {
+        if (_isSyncingEditorFields || EditingServer == null || value == null) return;
+        EditingServer.Transport = value;
+        if ((value.Equals("ws", StringComparison.OrdinalIgnoreCase) ||
+             value.Equals("httpupgrade", StringComparison.OrdinalIgnoreCase) ||
+             value.Equals("h2", StringComparison.OrdinalIgnoreCase) ||
+             value.Equals("http", StringComparison.OrdinalIgnoreCase)) &&
+            string.Equals(EditingSecurity, "reality", StringComparison.OrdinalIgnoreCase))
+        {
+            _isSyncingEditorFields = true;
+            EditingSecurity = "tls";
+            EditingServer.Security = "tls";
+            _isSyncingEditorFields = false;
+        }
+        RefreshSchemaOptions(preserveCurrentValues: true);
+        UpdateUriPreview();
+    }
+
+    partial void OnEditingSecurityChanged(string? value)
+    {
+        if (_isSyncingEditorFields || EditingServer == null || value == null) return;
+        EditingServer.Security = value;
+        RefreshSchemaOptions(preserveCurrentValues: true);
+        UpdateUriPreview();
+    }
+
+    partial void OnEditingFpChanged(string? value)
+    {
+        if (_isSyncingEditorFields || EditingServer == null || value == null) return;
+        EditingServer.Fp = value;
+        UpdateUriPreview();
+    }
+
+    partial void OnEditingFlowChanged(string? value)
+    {
+        if (_isSyncingEditorFields || EditingServer == null || value == null) return;
+        EditingServer.Flow = value;
+        UpdateUriPreview();
+    }
+
+    partial void OnEditingXhttpModeChanged(string? value)
+    {
+        if (_isSyncingEditorFields || EditingServer == null || value == null) return;
+        EditingServer.XhttpMode = value;
+        UpdateUriPreview();
+    }
+
+    partial void OnEditingHeaderTypeChanged(string? value)
+    {
+        if (_isSyncingEditorFields || EditingServer == null || value == null) return;
+        EditingServer.HeaderType = value;
+        UpdateUriPreview();
     }
 
     public void CheckCoreStatus()
@@ -201,6 +397,32 @@ public partial class ServersViewModel : ViewModelBase
     {
         TargetOriginalServer = server;
         EditingServer = server.Clone();
+
+        _isSyncingEditorFields = true;
+        try
+        {
+            _editingProtocol = EditingServer.Protocol;
+            _editingTransport = EditingServer.Transport;
+            _editingSecurity = EditingServer.Security;
+            _editingFp = EditingServer.Fp;
+            _editingFlow = EditingServer.Flow ?? string.Empty;
+            _editingXhttpMode = EditingServer.XhttpMode ?? "auto";
+            _editingHeaderType = EditingServer.HeaderType ?? string.Empty;
+        }
+        finally
+        {
+            _isSyncingEditorFields = false;
+        }
+
+        RefreshSchemaOptions(preserveCurrentValues: true);
+        OnPropertyChanged(nameof(EditingProtocol));
+        OnPropertyChanged(nameof(EditingTransport));
+        OnPropertyChanged(nameof(EditingSecurity));
+        OnPropertyChanged(nameof(EditingFp));
+        OnPropertyChanged(nameof(EditingFlow));
+        OnPropertyChanged(nameof(EditingXhttpMode));
+        OnPropertyChanged(nameof(EditingHeaderType));
+
         UpdateUriPreview();
         IsEditOpen = true;
         IsImportOpen = false;
